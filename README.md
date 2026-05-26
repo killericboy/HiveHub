@@ -1,6 +1,4 @@
-# HiveHub Macro — v1.4.0
-
-**by Killericboy**  
+# HiveHub Macro  **by Killericboy**  
 Roblox Bee Swarm Simulator automation macro.
 
 ---

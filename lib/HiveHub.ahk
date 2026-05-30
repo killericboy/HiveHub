@@ -1,6 +1,6 @@
 ; ================================================================
 ;  HiveHub Macro  V1.4.0  —  by Killericboy
-;  UI: WebView2 (Edge) + HTML/CSS
+;  UI: WebView2 (thqby's WebView2.ahk) + HTML/CSS
 ; ================================================================
 
 #Requires AutoHotkey v2.0
@@ -13,6 +13,7 @@
 #Include Roblox.ahk
 #Include Walk.ahk
 #Include WebView2.ahk
+#Include JSON.ahk
 
 SendMode "Event"
 CoordMode "Mouse", "Screen"
@@ -40,14 +41,12 @@ currentRow        := 0
 currentPass       := 0
 runStartTime      := 0
 camRotated        := 0
-isLoading         := false
 shiftLockActive   := false
 lastReconnectTick := 0
 
 windowX := 0, windowY := 0, windowWidth := 0, windowHeight := 0
 
-; ── Config from loaded state ──────────────────────────────────
-; These mirror the JS state object and are updated on every Save message
+; ── Config map (mirrors JS state) ────────────────────────────
 cfg := Map(
     "baseSpeed",       16,
     "direction",       1,
@@ -75,42 +74,56 @@ cfg := Map(
 
 ; ── Constants ─────────────────────────────────────────────────
 HIVEHUB_URL    := "https://www.roblox.com/games/15579077077/Hive-Hub"
-INI_PATH       := A_ScriptDir "\..\settings\hivehub_config.ini"
+JSON_PATH      := A_ScriptDir "\..\settings\profiles.json"
 BSS_PLACE_ID   := "1537690962"
 currentProfile := "Default"
 UI_PATH        := A_ScriptDir "\..\ui\index.html"
 
 SizeNames := ["XS","S","M","L","XL"]
-SizeTiles  := [2,   3,  5,  7,  10]
+SizeTiles  := [2, 3, 5, 7, 10]
 
 GetLengthTiles() => SizeTiles[cfg["lengthIdx"]]
 GetWidthTiles()  => cfg["width"]
 
-; ================================================================
-;  WebView2 HOST
-; ================================================================
-global wv2, wv2ready := false
+; ── WebView2 globals ──────────────────────────────────────────
+global wvc := 0   ; WebView2.Controller
+global wv2 := 0   ; WebView2.Core  (CoreWebView2)
+global wv2ready := false
 
+; ================================================================
+;  GUI + WebView2 SETUP
+; ================================================================
 BuildGUI() {
-    global wv2, wv2ready
+    global wvc, wv2, wv2ready, currentProfile
 
     G := Gui("+AlwaysOnTop", "HiveHub Macro v1.4.0 [" currentProfile "]")
     G.BackColor := "0d1825"
     G.OnEvent("Close", (*) => ExitApp())
-    G.Show("w480 h560")
+    G.Show("w540 h430")
 
-    ; Store hwnd for icon
     global G_hwnd := G.Hwnd
 
-    ; WebView2 fills the window
-    wv2 := WebView2.create(G.Hwnd)
-    wv2.Navigate("file:///" StrReplace(UI_PATH, "\", "/"))
+    ; ── Create WebView2 using thqby's API ────────────────────
+    ; Pick correct DLL from 32bit/64bit folder based on AHK bitness
+    dllFolder := (A_PtrSize = 8) ? "\64bit\" : "\32bit\"
+    wv2dll := A_ScriptDir dllFolder "WebView2Loader.dll"
+    if !FileExist(wv2dll)
+        wv2dll := A_ScriptDir "\WebView2Loader.dll"   ; fallback flat
+    wvc := WebView2.create(G.Hwnd, , , , , , wv2dll)
+    wv2 := wvc.CoreWebView2
 
-    ; Wait for page ready, then inject state
-    wv2.NavigationCompleted := WV2_Ready
-    wv2.WebMessageReceived  := WV2_Message
+    ; ── Navigate to the HTML UI ──────────────────────────────
+    uiFile := "file:///" StrReplace(UI_PATH, "\", "/")
+    wv2.Navigate(uiFile)
 
-    ; Tray icon
+    ; ── Wire up events using thqby's typed handler system ────
+    ; NavigationCompleted fires when page finishes loading
+    wv2.add_NavigationCompleted(OnNavCompleted)
+
+    ; WebMessageReceived fires when JS calls postMessage
+    wv2.add_WebMessageReceived(OnWebMessage)
+
+    ; ── Tray icon ─────────────────────────────────────────────
     iconFile := A_ScriptDir "\..\assets\bee.ico"
     if FileExist(iconFile) {
         TraySetIcon iconFile
@@ -119,105 +132,114 @@ BuildGUI() {
     }
 }
 
-; Called when navigation finishes — push saved state to JS
-WV2_Ready(wv, args) {
+; Called when page finishes loading — push state to JS
+OnNavCompleted(sender, args) {
     global wv2ready
     wv2ready := true
     PushStateToJS()
 }
 
-; Called when JS sends a message via ahk(fn, data)
-WV2_Message(wv, args) {
+; Called when JS sends window.chrome.webview.postMessage(...)
+OnWebMessage(sender, args) {
     msg := args.TryGetWebMessageAsString()
     if !msg
         return
 
     colonPos := InStr(msg, ":")
     if colonPos {
-        fn   := SubStr(msg, 1, colonPos-1)
-        data := SubStr(msg, colonPos+1)
+        fn   := SubStr(msg, 1, colonPos - 1)
+        data := SubStr(msg, colonPos + 1)
     } else {
         fn   := msg
         data := ""
     }
 
     switch fn {
-        case "Save":              JS_Save(data)
-        case "StartMacro":        StartMacro()
-        case "PauseMacro":        PauseMacro()
-        case "StopMacro":         StopMacro()
-        case "JoinPrivate":       JoinPrivate()
-        case "JoinPublic":        JoinPublic()
-        case "TestReconnect":     DoReconnect()
+        case "Save":                  JS_Save(data)
+        case "StartMacro":            StartMacro()
+        case "PauseMacro":            PauseMacro()
+        case "StopMacro":             StopMacro()
+        case "JoinPrivate":           JoinPrivate()
+        case "JoinPublic":            JoinPublic()
+        case "TestReconnect":         DoReconnect()
         case "RefreshRobloxDetected": JS_RefreshDetected()
-        case "OpenWebVersion":    Run HIVEHUB_URL
-        case "AddProfile":        AddProfile()
-        case "LoadSelectedProfile": LoadSelectedProfile()
-        case "DeleteProfile":     DeleteProfile()
+        case "OpenWebVersion":        Run HIVEHUB_URL
+        case "AddProfile":            AddProfile(data)
+        case "LoadSelectedProfile":   LoadSelectedProfile(data)
+        case "DeleteProfile":         DeleteProfile(data)
     }
 }
 
-; Push AHK state to JS as loadState()
+; ── Execute JS in the page ────────────────────────────────────
+JS(script) {
+    global wv2, wv2ready
+    if wv2ready
+        wv2.ExecuteScriptAsync(script)
+}
+
+; ── Build and push full state JSON to JS ──────────────────────
 PushStateToJS(*) {
     global cfg, currentProfile, wv2ready
     if !wv2ready
         return
 
-    profiles := GetProfileList()
+    profiles    := GetProfileList()
     profileJSON := "["
     for i, n in profiles
-        profileJSON .= (i>1 ? "," : "") '"' EscJ(n) '"'
+        profileJSON .= (i > 1 ? "," : "") '"' EscJ(n) '"'
     profileJSON .= "]"
 
     keys := "{"
     for k, v in cfg["hotbarKeys"]
-        keys .= '"' k '":' (v ? "true" : "false") ','
+        keys .= '"' k '":' (v ? "true" : "false") ","
     keys := RTrim(keys, ",") "}"
 
-    json := '{'
-    . '"baseSpeed":'       cfg["baseSpeed"]       ','
-    . '"direction":'       cfg["direction"]        ','
-    . '"lengthIdx":'       cfg["lengthIdx"]        ','
-    . '"width":'           cfg["width"]            ','
-    . '"camAlign":'        cfg["camAlign"]         ','
-    . '"camSteps":'        cfg["camSteps"]         ','
-    . '"shiftLock":'       (cfg["shiftLock"]       ? "true" : "false") ','
-    . '"autoHarvest":'     (cfg["autoHarvest"]     ? "true" : "false") ','
-    . '"keyDelay":'        cfg["keyDelay"]         ','
-    . '"hotbarEnable":'    (cfg["hotbarEnable"]    ? "true" : "false") ','
-    . '"hotbarInterval":'  cfg["hotbarInterval"]   ','
-    . '"hotbarKeys":'      keys                    ','
-    . '"privServer":"'   EscJ(cfg["privServer"])  '",'
-    . '"joinMethod":'      cfg["joinMethod"]       ','
-    . '"reconnectEnable":' (cfg["reconnectEnable"] ? "true" : "false") ','
-    . '"reconnectHours":'  cfg["reconnectHours"]   ','
-    . '"reconnectHH":'     cfg["reconnectHH"]      ','
-    . '"reconnectMM":'     cfg["reconnectMM"]      ','
-    . '"fallbackPublic":'  (cfg["fallbackPublic"]  ? "true" : "false") ','
-    . '"pubServer":"'    EscJ(cfg["pubServer"])   '",'
-    . '"profiles":'        profileJSON             ','
-    . '"currentProfile":"' EscJ(currentProfile)   '"'
-    . '}'
+    sl  := cfg["shiftLock"]       ? "true" : "false"
+    ah  := cfg["autoHarvest"]     ? "true" : "false"
+    he  := cfg["hotbarEnable"]    ? "true" : "false"
+    re  := cfg["reconnectEnable"] ? "true" : "false"
+    fp  := cfg["fallbackPublic"]  ? "true" : "false"
+    json := "{"
+    json .= '"baseSpeed":'      cfg["baseSpeed"]      ","
+    json .= '"direction":'      cfg["direction"]       ","
+    json .= '"lengthIdx":'      cfg["lengthIdx"]       ","
+    json .= '"width":'          cfg["width"]           ","
+    json .= '"camAlign":'       cfg["camAlign"]        ","
+    json .= '"camSteps":'       cfg["camSteps"]        ","
+    json .= '"shiftLock":'      sl                     ","
+    json .= '"autoHarvest":'    ah                     ","
+    json .= '"keyDelay":'       cfg["keyDelay"]        ","
+    json .= '"hotbarEnable":'   he                     ","
+    json .= '"hotbarInterval":' cfg["hotbarInterval"]  ","
+    json .= '"hotbarKeys":'     keys                   ","
+    json .= '"privServer":"'    EscJ(cfg["privServer"]) '",'
+    json .= '"joinMethod":'     cfg["joinMethod"]      ","
+    json .= '"reconnectEnable":' re                    ","
+    json .= '"reconnectHours":' cfg["reconnectHours"]  ","
+    json .= '"reconnectHH":'    cfg["reconnectHH"]     ","
+    json .= '"reconnectMM":'    cfg["reconnectMM"]     ","
+    json .= '"fallbackPublic":' fp                     ","
+    json .= '"pubServer":"'     EscJ(cfg["pubServer"])  '",'
+    json .= '"profiles":'       profileJSON            ","
+    json .= '"currentProfile":"' EscJ(currentProfile)  '"'
+    json .= "}"
 
-    wv2.ExecuteScript('window.HiveHub.loadState(' json ')')
+    JS("window.HiveHub.loadState(" json ")")
 }
 
-; JSON string escape helper
+; ── JSON string escape ────────────────────────────────────────
 EscJ(s) => StrReplace(StrReplace(StrReplace(s, "\", "\\"), '"', '\"'), "`n", "\n")
 
-; JS → AHK: Save called on every UI change
+; ── Parse JSON from JS into cfg ──────────────────────────────
 JS_Save(data) {
-    global cfg, currentProfile
-    ; Parse JSON manually — light, no deps
+    global cfg
     ParseJSONIntoCfg(data)
     SaveProfile()
 }
 
-; Light JSON parser for our known flat+one-level-nested shape
 ParseJSONIntoCfg(json) {
     global cfg
 
-    ; numbers / booleans
     for key in ["baseSpeed","direction","lengthIdx","width","camAlign","camSteps",
                 "keyDelay","hotbarInterval","joinMethod","reconnectHours",
                 "reconnectHH","reconnectMM"] {
@@ -232,8 +254,6 @@ ParseJSONIntoCfg(json) {
         if RegExMatch(json, '"' key '"\s*:\s*"((?:[^"\\]|\\.)*)"', &m)
             cfg[key] := StrReplace(StrReplace(m[1], '\"', '"'), "\\", "\")
     }
-
-    ; hotbarKeys: {"1":true,"2":false,...}
     if RegExMatch(json, '"hotbarKeys"\s*:\s*\{([^}]*)\}', &km) {
         keys := Map()
         raw  := km[1]
@@ -246,25 +266,17 @@ ParseJSONIntoCfg(json) {
     }
 }
 
-; JS call: refresh detected Roblox label
+; ── Refresh Detected Roblox label ────────────────────────────
 JS_RefreshDetected() {
     hwnd := GetRobloxHWND()
     if hwnd {
+        title := ""
         try title := WinGetTitle("ahk_id " hwnd)
-        catch
-            title := "Roblox"
-        name := (title != "") ? SubStr(title,1,30) : "Roblox"
+        name := (title != "" && title != "Roblox") ? SubStr(title, 1, 35) : "Roblox"
         JS('window.HiveHub.setDetected("' EscJ(name) '", true)')
     } else {
         JS('window.HiveHub.setDetected("Not detected", false)')
     }
-}
-
-; Shortcut: execute JS
-JS(script) {
-    global wv2, wv2ready
-    if wv2ready
-        wv2.ExecuteScript(script)
 }
 
 ; ================================================================
@@ -332,18 +344,18 @@ JoinServer(linkCode := "", shareCode := "") {
 ValidateServerLink(str) {
     str := Trim(str)
     if str = ""
-        return {valid:true, code:"", type:"public"}
-    if RegExMatch(str,"i)roblox\.com\/([a-z]{2}\/)?games\/1537690962\/?[^?]*\?privateServerLinkCode=(?P<code>[a-z0-9]{32})",&m)
-        return {valid:true, code:m.code, type:"private"}
-    if RegExMatch(str,"i)roblox\.com\/share\?code=(?P<code>[a-f0-9]{32})&type=Server",&m)
-        return {valid:true, code:m.code, type:"share"}
-    return {valid:false, code:"", type:""}
+        return {valid: true, code: "", type: "public"}
+    if RegExMatch(str, "i)roblox\.com\/([a-z]{2}\/)?games\/1537690962\/?[^?]*\?privateServerLinkCode=(?P<code>[a-z0-9]{32})", &m)
+        return {valid: true, code: m.code, type: "private"}
+    if RegExMatch(str, "i)roblox\.com\/share\?code=(?P<code>[a-f0-9]{32})&type=Server", &m)
+        return {valid: true, code: m.code, type: "share"}
+    return {valid: false, code: "", type: ""}
 }
 
 JoinPrivate() {
     result := ValidateServerLink(cfg["privServer"])
     if !result.valid {
-        MsgBox "Invalid private server link.","HiveHub",0x40030
+        MsgBox "Invalid private server link.", "HiveHub", 0x40030
         return
     }
     if cfg["joinMethod"] = 1
@@ -382,7 +394,6 @@ CheckReconnect() {
     if !running
         return
 
-    ; Fixed UTC time
     hh := Integer(cfg["reconnectHH"])
     mm := Integer(cfg["reconnectMM"])
     if (hh > 0 || mm > 0) {
@@ -395,7 +406,6 @@ CheckReconnect() {
         }
     }
 
-    ; Hourly interval
     hrs := Float(cfg["reconnectHours"])
     if (hrs > 0 && lastReconnectTick > 0) {
         if ((A_TickCount - lastReconnectTick) / 3600000.0 >= hrs)
@@ -424,7 +434,7 @@ DoReconnect(*) {
 }
 
 ; ================================================================
-;  STATS  (pushed to JS every 500ms while running)
+;  STATS
 ; ================================================================
 UpdateStats() {
     global running, runStartTime, cycleCount, currentRow, currentPass
@@ -433,8 +443,8 @@ UpdateStats() {
     elapsed := A_TickCount - runStartTime
     s := Format("{:02}", Floor(Mod(elapsed / 1000, 60)))
     m := Format("{:02}", Floor(elapsed / 60000))
-    p := currentPass = 1 ? "Fwd" : (currentPass = 2 ? "Bck" : "-")
-    JS('window.HiveHub.setStats("' m ':' s ' | P:' p ' R:' currentRow ' C:' cycleCount '")')
+    p := currentPass = 1 ? "Forward" : (currentPass = 2 ? "Backward" : "-")
+    JS('window.HiveHub.setStats("' m ':' s ' | Pass:' p ' Row:' currentRow ' Cycle:' cycleCount '")')
 }
 
 ResetStats() {
@@ -444,7 +454,7 @@ ResetStats() {
 }
 
 ; ================================================================
-;  AUTO-KEY (hotbar)
+;  AUTO-KEY (HOTBAR)
 ; ================================================================
 autoKeyTimer := 0
 
@@ -456,13 +466,13 @@ StartAutoKey() {
     interval := cfg["hotbarInterval"] * 1000
     if interval <= 0
         return
-    autoKeyTimer := SetTimer(SendAutoKey, interval)
+    SetTimer SendAutoKey, interval
+    autoKeyTimer := 1
 }
 
 StopAutoKey() {
     global autoKeyTimer
-    if autoKeyTimer
-        SetTimer(SendAutoKey, 0)
+    SetTimer SendAutoKey, 0
     autoKeyTimer := 0
 }
 
@@ -478,158 +488,219 @@ SendAutoKey() {
 ; ================================================================
 ;  PROFILE SYSTEM
 ; ================================================================
-GetProfileList() {
-    global INI_PATH
-    try {
-        raw  := IniRead(INI_PATH, "ProfileList", "Names", "Default")
-        list := StrSplit(raw, "|")
-        return (list.Length = 0 || list[1] = "") ? ["Default"] : list
+; ================================================================
+;  PROFILE SYSTEM  —  Pure JSON (single profiles.json file)
+;
+;  File structure (settings/profiles.json):
+;  {
+;    "lastUsed_Killericboy": "MyFarm",
+;    "lastUsed_OtherUser": "Default",
+;    "profiles": {
+;      "Default": { "baseSpeed":16, "direction":1, ... },
+;      "MyFarm":  { "baseSpeed":22, ... }
+;    }
+;  }
+; ================================================================
+
+; ── Load full JSON file → return parsed Map ───────────────────
+LoadProfilesJSON() {
+    global JSON_PATH
+    if !FileExist(JSON_PATH) {
+        ; Bootstrap an empty structure
+        root := Map("profiles", Map("Default", Map()))
+        SaveProfilesJSON(root)
+        return root
     }
-    return ["Default"]
+    try {
+        raw  := FileRead(JSON_PATH, "UTF-8")
+        return JSON.parse(raw)
+    } catch {
+        ; File corrupt — return fresh structure
+        return Map("profiles", Map("Default", Map()))
+    }
 }
 
-SaveProfileList(list) {
-    global INI_PATH
-    joined := ""
-    for i, name in list
-        joined .= (i > 1 ? "|" : "") name
-    IniWrite joined, INI_PATH, "ProfileList", "Names"
+; ── Write full Map → JSON file ────────────────────────────────
+SaveProfilesJSON(root) {
+    global JSON_PATH
+    raw := JSON.stringify(root, , "  ")   ; pretty-printed, 2-space indent
+    try FileDelete JSON_PATH
+    FileAppend raw, JSON_PATH, "UTF-8"
 }
 
-LoadProfile(name) {
-    global INI_PATH, currentProfile, cfg, HIVEHUB_URL
-    currentProfile := name
-    sec            := "Profile_" name
+; ── Get ordered profile name list ─────────────────────────────
+GetProfileList() {
+    root     := LoadProfilesJSON()
+    profiles := root["profiles"]
+    list     := []
+    for name, _ in profiles
+        list.Push(name)
+    return list.Length > 0 ? list : ["Default"]
+}
 
-    cfg["baseSpeed"]       := Integer(IniRead(INI_PATH, sec, "BaseSpeed",      "16"))
-    cfg["direction"]       := Integer(IniRead(INI_PATH, sec, "Direction",      "1"))
-    cfg["lengthIdx"]       := Integer(IniRead(INI_PATH, sec, "LengthIdx",      "3"))
-    cfg["width"]           := Integer(IniRead(INI_PATH, sec, "Width",          "3"))
-    cfg["camAlign"]        := Integer(IniRead(INI_PATH, sec, "CamAlign",       "1"))
-    cfg["camSteps"]        := Integer(IniRead(INI_PATH, sec, "CamSteps",       "1"))
-    cfg["shiftLock"]       := Integer(IniRead(INI_PATH, sec, "ShiftLock",      "0")) = 1
-    cfg["autoHarvest"]     := Integer(IniRead(INI_PATH, sec, "AutoHarvest",    "1")) = 1
-    cfg["keyDelay"]        := Integer(IniRead(INI_PATH, sec, "KeyDelay",       "20"))
-    cfg["hotbarEnable"]    := Integer(IniRead(INI_PATH, sec, "HotbarEnable",   "0")) = 1
-    cfg["hotbarInterval"]  := Integer(IniRead(INI_PATH, sec, "HotbarInterval", "30"))
-    cfg["privServer"]      := IniRead(INI_PATH, sec, "PrivServer",     "")
-    cfg["joinMethod"]      := Integer(IniRead(INI_PATH, sec, "JoinMethod",     "1"))
-    cfg["reconnectEnable"] := Integer(IniRead(INI_PATH, sec, "ReconnectEnable","0")) = 1
-    cfg["reconnectHours"]  := Float(IniRead(INI_PATH, sec, "ReconnectHours",  "0"))
-    cfg["reconnectHH"]     := Integer(IniRead(INI_PATH, sec, "ReconnectHH",    "0"))
-    cfg["reconnectMM"]     := Integer(IniRead(INI_PATH, sec, "ReconnectMM",    "0"))
-    cfg["fallbackPublic"]  := Integer(IniRead(INI_PATH, sec, "FallbackPublic", "1")) = 1
-    pub                    := IniRead(INI_PATH, sec, "PubServer", "")
+; ── Build a Map from current cfg ──────────────────────────────
+CfgToMap() {
+    global cfg, HIVEHUB_URL
+    m := Map()
+    m["baseSpeed"]       := cfg["baseSpeed"]
+    m["direction"]       := cfg["direction"]
+    m["lengthIdx"]       := cfg["lengthIdx"]
+    m["width"]           := cfg["width"]
+    m["camAlign"]        := cfg["camAlign"]
+    m["camSteps"]        := cfg["camSteps"]
+    m["shiftLock"]       := cfg["shiftLock"]       ? 1 : 0
+    m["autoHarvest"]     := cfg["autoHarvest"]     ? 1 : 0
+    m["keyDelay"]        := cfg["keyDelay"]
+    m["hotbarEnable"]    := cfg["hotbarEnable"]    ? 1 : 0
+    m["hotbarInterval"]  := cfg["hotbarInterval"]
+    m["privServer"]      := cfg["privServer"]
+    m["joinMethod"]      := cfg["joinMethod"]
+    m["reconnectEnable"] := cfg["reconnectEnable"] ? 1 : 0
+    m["reconnectHours"]  := cfg["reconnectHours"]
+    m["reconnectHH"]     := cfg["reconnectHH"]
+    m["reconnectMM"]     := cfg["reconnectMM"]
+    m["fallbackPublic"]  := cfg["fallbackPublic"]  ? 1 : 0
+    pub := Trim(cfg["pubServer"])
+    m["pubServer"]       := (pub = "") ? HIVEHUB_URL : pub
+    hk := Map()
+    for k, v in cfg["hotbarKeys"]
+        hk[k] := v ? 1 : 0
+    m["hotbarKeys"] := hk
+    return m
+}
+
+; ── Apply a parsed profile Map into cfg ───────────────────────
+MapToCfg(m) {
+    global cfg, HIVEHUB_URL
+    G(key, def) {
+        try return m[key]
+        return def
+    }
+    cfg["baseSpeed"]       := Integer(G("baseSpeed",      16))
+    cfg["direction"]       := Integer(G("direction",      1))
+    cfg["lengthIdx"]       := Integer(G("lengthIdx",      3))
+    cfg["width"]           := Integer(G("width",          3))
+    cfg["camAlign"]        := Integer(G("camAlign",       1))
+    cfg["camSteps"]        := Integer(G("camSteps",       1))
+    cfg["shiftLock"]       := Integer(G("shiftLock",      0)) = 1
+    cfg["autoHarvest"]     := Integer(G("autoHarvest",    1)) = 1
+    cfg["keyDelay"]        := Integer(G("keyDelay",       20))
+    cfg["hotbarEnable"]    := Integer(G("hotbarEnable",   0)) = 1
+    cfg["hotbarInterval"]  := Integer(G("hotbarInterval", 30))
+    cfg["privServer"]      := G("privServer",             "")
+    cfg["joinMethod"]      := Integer(G("joinMethod",     1))
+    cfg["reconnectEnable"] := Integer(G("reconnectEnable",0)) = 1
+    cfg["reconnectHours"]  := Float(G("reconnectHours",   0))
+    cfg["reconnectHH"]     := Integer(G("reconnectHH",    0))
+    cfg["reconnectMM"]     := Integer(G("reconnectMM",    0))
+    cfg["fallbackPublic"]  := Integer(G("fallbackPublic", 1)) = 1
+    pub := G("pubServer", "")
     cfg["pubServer"]       := (pub = "") ? HIVEHUB_URL : pub
-
-    ; hotbar keys
     keys := Map()
-    keysRaw := IniRead(INI_PATH, sec, "HotbarKeys", "")
-    if keysRaw != ""
-        for pair in StrSplit(keysRaw, ",")
-            if RegExMatch(pair, "^(\d+):(0|1)$", &m)
-                keys[m[1]] := (m[2] = "1")
+    try {
+        hk := m["hotbarKeys"]
+        for k, v in hk
+            keys[k] := (v = 1)
+    }
     cfg["hotbarKeys"] := keys
+}
 
-    try IniWrite name, INI_PATH, "LastUsed", A_UserName
+; ── Load a profile by name ────────────────────────────────────
+LoadProfile(name) {
+    global currentProfile, cfg
+    currentProfile := name
+    root     := LoadProfilesJSON()
+    profiles := root["profiles"]
+    if profiles.Has(name) {
+        try MapToCfg(profiles[name])
+    }
+    ; Update lastUsed per Windows user and persist
+    root["lastUsed_" A_UserName] := name
+    SaveProfilesJSON(root)
+    ; Update window title
+    global G_hwnd
+    try WinSetTitle "HiveHub Macro v1.4.0 [" name "]", "ahk_id " G_hwnd
+    ; Push title to JS too
+    JS('document.title = "HiveHub Macro v1.4.0 [' name ']"')
     PushStateToJS()
 }
 
+; ── Save current cfg into the active profile ─────────────────
 SaveProfile() {
-    global INI_PATH, currentProfile, cfg
-    _WriteINI("Profile_" currentProfile)
+    global currentProfile
+    SaveNamedProfile(currentProfile)
 }
 
 SaveNamedProfile(name) {
-    _WriteINI("Profile_" name)
+    root                    := LoadProfilesJSON()
+    root["profiles"][name]  := CfgToMap()
+    root["lastUsed_" A_UserName] := name
+    SaveProfilesJSON(root)
 }
 
-_WriteINI(sec) {
-    global INI_PATH, cfg, HIVEHUB_URL
-    IniWrite cfg["baseSpeed"],       INI_PATH, sec, "BaseSpeed"
-    IniWrite cfg["direction"],       INI_PATH, sec, "Direction"
-    IniWrite cfg["lengthIdx"],       INI_PATH, sec, "LengthIdx"
-    IniWrite cfg["width"],           INI_PATH, sec, "Width"
-    IniWrite cfg["camAlign"],        INI_PATH, sec, "CamAlign"
-    IniWrite cfg["camSteps"],        INI_PATH, sec, "CamSteps"
-    IniWrite (cfg["shiftLock"]    ? 1 : 0), INI_PATH, sec, "ShiftLock"
-    IniWrite (cfg["autoHarvest"]  ? 1 : 0), INI_PATH, sec, "AutoHarvest"
-    IniWrite cfg["keyDelay"],        INI_PATH, sec, "KeyDelay"
-    IniWrite (cfg["hotbarEnable"] ? 1 : 0), INI_PATH, sec, "HotbarEnable"
-    IniWrite cfg["hotbarInterval"],  INI_PATH, sec, "HotbarInterval"
-    IniWrite cfg["privServer"],      INI_PATH, sec, "PrivServer"
-    IniWrite cfg["joinMethod"],      INI_PATH, sec, "JoinMethod"
-    IniWrite (cfg["reconnectEnable"] ? 1 : 0), INI_PATH, sec, "ReconnectEnable"
-    IniWrite cfg["reconnectHours"],  INI_PATH, sec, "ReconnectHours"
-    IniWrite cfg["reconnectHH"],     INI_PATH, sec, "ReconnectHH"
-    IniWrite cfg["reconnectMM"],     INI_PATH, sec, "ReconnectMM"
-    IniWrite (cfg["fallbackPublic"] ? 1 : 0), INI_PATH, sec, "FallbackPublic"
-    pub := Trim(cfg["pubServer"])
-    IniWrite (pub = "" ? HIVEHUB_URL : pub), INI_PATH, sec, "PubServer"
-    ; hotbar keys
-    keysStr := ""
-    for k, v in cfg["hotbarKeys"]
-        keysStr .= k ":" (v ? "1" : "0") ","
-    IniWrite RTrim(keysStr, ","), INI_PATH, sec, "HotbarKeys"
-}
-
-AddProfile() {
-    global cfg
-    name := Trim(cfg["profileName"])
+AddProfile(nameRaw := "") {
+    global cfg, currentProfile
+    ; Name comes directly from JS button click (JSON-encoded string)
+    name := Trim(StrReplace(nameRaw, '"', ''))
+    if name = ""
+        name := Trim(cfg["profileName"])   ; fallback to last saved state
     if name = ""
         return
-    list   := GetProfileList()
-    exists := false
-    for n in list
-        if n = name
-            exists := true
-    if !exists {
-        list.Push(name)
-        SaveProfileList(list)
-    }
-    SaveNamedProfile(name)
+    ; Check if it already exists in JSON
+    root     := LoadProfilesJSON()
+    profiles := root["profiles"]
+    exists   := profiles.Has(name)
+    ; Set as current profile and save
+    currentProfile := name
+    SaveNamedProfile(name)   ; writes cfg → JSON under this name
     JS('window.HiveHub.setProfileFeedback("' (exists ? "Saved" : "Created") ': ' EscJ(name) '", true)')
     PushStateToJS()
 }
 
-LoadSelectedProfile() {
+LoadSelectedProfile(nameRaw := "") {
     global cfg
-    name := Trim(cfg["selectedProfile"])
+    name := Trim(StrReplace(nameRaw, '"', ''))
+    if name = ""
+        name := Trim(cfg["selectedProfile"])
     if name = "" {
-        MsgBox "Select a profile first.","HiveHub",0x40030
+        MsgBox "Select a profile first.", "HiveHub", 0x40030
         return
     }
-    list := GetProfileList()
+    list  := GetProfileList()
     found := false
     for n in list
         if n = name
             found := true
     if !found {
-        MsgBox "Profile not found.","HiveHub",0x40030
+        MsgBox "Profile not found.", "HiveHub", 0x40030
         return
     }
     LoadProfile(name)
     JS('window.HiveHub.setProfileFeedback("Loaded: ' EscJ(name) '", true)')
 }
 
-DeleteProfile() {
+DeleteProfile(nameRaw := "") {
     global cfg, currentProfile
-    name := Trim(cfg["selectedProfile"])
+    name := Trim(StrReplace(nameRaw, '"', ''))
+    if name = ""
+        name := Trim(cfg["selectedProfile"])
     if name = "" {
-        MsgBox "Select a profile to delete.","HiveHub",0x40030
+        MsgBox "Select a profile to delete.", "HiveHub", 0x40030
         return
     }
     if name = "Default" {
-        MsgBox "Cannot delete Default.","HiveHub",0x40030
+        MsgBox "Cannot delete Default.", "HiveHub", 0x40030
         return
     }
-    list    := GetProfileList()
-    newList := []
-    for n in list
-        if n != name
-            newList.Push(n)
-    SaveProfileList(newList)
-    try IniDelete(INI_PATH, "Profile_" name)
+    root     := LoadProfilesJSON()
+    profiles := root["profiles"]
+    if profiles.Has(name)
+        profiles.Delete(name)
+    root["profiles"] := profiles
+    userKey := "lastUsed_" A_UserName
+    if root.Has(userKey) && root[userKey] = name
+        root[userKey] := "Default"
+    SaveProfilesJSON(root)
     if currentProfile = name
         LoadProfile("Default")
     JS('window.HiveHub.setProfileFeedback("Deleted: ' EscJ(name) '", false)')
@@ -644,8 +715,8 @@ F10:: StopMacro()
 F11:: ToggleHarvest()
 F12:: PauseMacro()
 
-OnExit(CleanupKeys)
-CleanupKeys(*) {
+OnExit(CleanupOnExit)
+CleanupOnExit(*) {
     for k in [FwdKey, BackKey, LeftKey, RightKey]
         Send "{" k " up}"
     Send "{LButton up}"
@@ -672,12 +743,12 @@ StartMacro(*) {
     if running
         return
     if !GetRobloxClientPos() {
-        MsgBox "Roblox not found.","HiveHub",0x40030
+        MsgBox "Roblox not found.", "HiveHub", 0x40030
         return
     }
     spd := cfg["baseSpeed"]
     if spd <= 0 {
-        MsgBox "Walk speed must be > 0.","HiveHub",0x40030
+        MsgBox "Walk speed must be > 0.", "HiveHub", 0x40030
         return
     }
     base_movespeed := spd
@@ -694,7 +765,7 @@ StartMacro(*) {
     if cfg["shiftLock"]
         EnableShiftLock()
 
-    camDir   := ["None","Right","Left"][cfg["camAlign"]]
+    camDir   := ["None", "Right", "Left"][cfg["camAlign"]]
     camSteps := cfg["camSteps"]
     if (camDir != "None" && camSteps > 0)
         RotateCamera(camDir, camSteps)
@@ -831,14 +902,20 @@ SnakeThread() {
 }
 
 ; ================================================================
-;  START
+;  STARTUP
 ; ================================================================
 pToken := Gdip_Startup()
 OnExit((*) => Gdip_Shutdown(pToken))
 
-; Load last-used profile into cfg before GUI opens
+; Load last-used profile before building GUI
 lastProfile := ""
-try lastProfile := IniRead(INI_PATH, "LastUsed", A_UserName, "Default")
+try {
+    root0       := LoadProfilesJSON()
+    userKey     := "lastUsed_" A_UserName
+    lastProfile := root0.Has(userKey) ? root0[userKey] : "Default"
+} catch {
+    lastProfile := "Default"
+}
 list0 := GetProfileList()
 found := false
 for n in list0
@@ -846,5 +923,5 @@ for n in list0
         found := true
 LoadProfile(found ? lastProfile : "Default")
 
-; Build the WebView2 window (opens UI)
+; Build GUI — blocks until WebView2 controller is ready
 BuildGUI()

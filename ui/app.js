@@ -54,7 +54,7 @@ function showTab(name,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'))
   $('tab-'+name).classList.add('active')
   el.classList.add('active')
-  if(name==='settings') ahk('RefreshRobloxDetected')
+  ahk('RefreshRobloxDetected')
 }
 
 // ── Steppers ────────────────────────────────────────────────
@@ -158,3 +158,8 @@ function save(){
 }
 
 updateLengthDisplay()
+
+// Tell AHK that window.HiveHub is fully initialised and safe to call.
+// We fire it two ways: inline (fast) and via window.onload (safe fallback).
+ahk('JSReady')
+window.addEventListener('load', () => ahk('JSReady'))

@@ -77,7 +77,10 @@ HIVEHUB_URL    := "https://www.roblox.com/games/15579077077/Hive-Hub"
 JSON_PATH      := A_ScriptDir "\..\settings\profiles.json"
 BSS_PLACE_ID   := "1537690962"
 currentProfile := "Default"
-UI_PATH        := A_ScriptDir "\..\ui\index.html"
+
+; FIX: Resolve UI path without ".." so WebView2 file:// navigation works cleanly
+; A_ScriptDir = "...\HiveHub\lib" — strip "\lib" to get the root folder
+UI_PATH := SubStr(A_ScriptDir, 1, InStr(A_ScriptDir, "\",, -1) - 1) "\ui\index.html"
 
 SizeNames := ["XS","S","M","L","XL"]
 SizeTiles  := [2, 3, 5, 7, 10]
@@ -86,29 +89,39 @@ GetLengthTiles() => SizeTiles[cfg["lengthIdx"]]
 GetWidthTiles()  => cfg["width"]
 
 ; ── WebView2 globals ──────────────────────────────────────────
-global wvc := 0   ; WebView2.Controller
-global wv2 := 0   ; WebView2.Core  (CoreWebView2)
+; FIX: G must be global so the Gui object is NOT garbage-collected when
+;      BuildGUI() returns.  A local Gui gets destroyed the moment the
+;      function exits — taking the window, WebView2, and all JS with it.
+;      That was the root cause of "clicking does nothing on any tab".
+global G        := 0
+global wvc      := 0   ; WebView2.Controller
+global wv2      := 0   ; WebView2.Core  (CoreWebView2)
 global wv2ready := false
+
+; Store event-handler tokens globally so they are never garbage-collected
+global navToken := 0
+global msgToken := 0
 
 ; ================================================================
 ;  GUI + WebView2 SETUP
 ; ================================================================
 BuildGUI() {
-    global wvc, wv2, wv2ready, currentProfile
+    ; FIX: declare G global so it survives after this function returns
+    global G, wvc, wv2, wv2ready, currentProfile, navToken, msgToken
 
     G := Gui("+AlwaysOnTop", "HiveHub Macro v1.4.0 [" currentProfile "]")
     G.BackColor := "0d1825"
     G.OnEvent("Close", (*) => ExitApp())
+    G.OnEvent("Size",  OnGuiSize)        ; FIX: resize WebView2 when window resizes
     G.Show("w540 h430")
 
     global G_hwnd := G.Hwnd
 
     ; ── Create WebView2 using thqby's API ────────────────────
-    ; Pick correct DLL from 32bit/64bit folder based on AHK bitness
     dllFolder := (A_PtrSize = 8) ? "\64bit\" : "\32bit\"
     wv2dll := A_ScriptDir dllFolder "WebView2Loader.dll"
     if !FileExist(wv2dll)
-        wv2dll := A_ScriptDir "\WebView2Loader.dll"   ; fallback flat
+        wv2dll := A_ScriptDir "\WebView2Loader.dll"
     wvc := WebView2.create(G.Hwnd, , , , , , wv2dll)
     wv2 := wvc.CoreWebView2
 
@@ -116,12 +129,9 @@ BuildGUI() {
     uiFile := "file:///" StrReplace(UI_PATH, "\", "/")
     wv2.Navigate(uiFile)
 
-    ; ── Wire up events using thqby's typed handler system ────
-    ; NavigationCompleted fires when page finishes loading
-    wv2.add_NavigationCompleted(OnNavCompleted)
-
-    ; WebMessageReceived fires when JS calls postMessage
-    wv2.add_WebMessageReceived(OnWebMessage)
+    ; FIX: store tokens in globals — anonymous handlers can be GC'd otherwise
+    navToken := wv2.add_NavigationCompleted(OnNavCompleted)
+    msgToken := wv2.add_WebMessageReceived(OnWebMessage)
 
     ; ── Tray icon ─────────────────────────────────────────────
     iconFile := A_ScriptDir "\..\assets\bee.ico"
@@ -132,11 +142,20 @@ BuildGUI() {
     }
 }
 
-; Called when page finishes loading — push state to JS
+; Resize WebView2 to fill the window whenever the user resizes it
+OnGuiSize(GuiObj, MinMax, Width, Height) {
+    global wvc
+    if (wvc && MinMax != -1)   ; -1 = minimized
+        wvc.Fill()
+}
+
+; Called when page finishes loading — push state to JS + refresh detection
 OnNavCompleted(sender, args) {
     global wv2ready
     wv2ready := true
     PushStateToJS()
+    ; FIX: populate the Roblox-detected indicator automatically on load
+    JS_RefreshDetected()
 }
 
 ; Called when JS sends window.chrome.webview.postMessage(...)
@@ -266,17 +285,59 @@ ParseJSONIntoCfg(json) {
     }
 }
 
-; ── Refresh Detected Roblox label ────────────────────────────
-JS_RefreshDetected() {
-    hwnd := GetRobloxHWND()
-    if hwnd {
-        title := ""
-        try title := WinGetTitle("ahk_id " hwnd)
-        name := (title != "" && title != "Roblox") ? SubStr(title, 1, 35) : "Roblox"
-        JS('window.HiveHub.setDetected("' EscJ(name) '", true)')
-    } else {
-        JS('window.HiveHub.setDetected("Not detected", false)')
+; ── Detect Roblox install type (registry-based, same approach as Natro Macro) ─
+; Reads the roblox:// or roblox-player:// protocol handler from the registry.
+; Whichever bootstrapper is installed last wins — Bloxstrap, UWP, or standard.
+DetectRobloxInstallType() {
+    cmd := ""
+    for regKey in [
+        "HKCU\SOFTWARE\Classes\roblox-player\shell\open\command",
+        "HKCU\SOFTWARE\Classes\roblox\shell\open\command",
+        "HKCR\roblox-player\shell\open\command",
+        "HKCR\roblox\shell\open\command"
+    ] {
+        try {
+            cmd := RegRead(regKey)
+            if cmd != ""
+                break
+        }
     }
+
+    if cmd != "" {
+        if InStr(cmd, "Bloxstrap",, 1)
+            return "Bloxstrap"
+        if InStr(cmd, "WindowsApps",, 1)
+            return "UWP / Store"
+        if InStr(cmd, "RobloxPlayer",, 1) || InStr(cmd, "RobloxStudio",, 1)
+            return "Windows"
+    }
+
+    ; Fallback: file-system checks if registry gave nothing
+    if FileExist(A_LocalAppData "\Bloxstrap\Bloxstrap.exe")
+        return "Bloxstrap"
+    if DirExist(A_LocalAppData "\Roblox\Versions")
+        return "Windows"
+    try {
+        loop files A_ProgramFiles "\WindowsApps\ROBLOX*", "D"
+            return "UWP / Store"
+    }
+
+    return ""
+}
+
+; ── Refresh Detected Roblox label ─────────────────────────────────────────────
+JS_RefreshDetected() {
+    installType := DetectRobloxInstallType()
+    isRunning   := (GetRobloxHWND() != 0)
+
+    if installType = "" {
+        JS('window.HiveHub.setDetected("Not detected", false)')
+        return
+    }
+
+    ; Show install type; append a live dot when Roblox is currently open
+    label := installType (isRunning ? " ●" : "")
+    JS('window.HiveHub.setDetected("' EscJ(label) '", true)')
 }
 
 ; ================================================================
@@ -486,27 +547,13 @@ SendAutoKey() {
 }
 
 ; ================================================================
-;  PROFILE SYSTEM
-; ================================================================
-; ================================================================
 ;  PROFILE SYSTEM  —  Pure JSON (single profiles.json file)
-;
-;  File structure (settings/profiles.json):
-;  {
-;    "lastUsed_Killericboy": "MyFarm",
-;    "lastUsed_OtherUser": "Default",
-;    "profiles": {
-;      "Default": { "baseSpeed":16, "direction":1, ... },
-;      "MyFarm":  { "baseSpeed":22, ... }
-;    }
-;  }
 ; ================================================================
 
 ; ── Load full JSON file → return parsed Map ───────────────────
 LoadProfilesJSON() {
     global JSON_PATH
     if !FileExist(JSON_PATH) {
-        ; Bootstrap an empty structure
         root := Map("profiles", Map("Default", Map()))
         SaveProfilesJSON(root)
         return root
@@ -515,7 +562,6 @@ LoadProfilesJSON() {
         raw  := FileRead(JSON_PATH, "UTF-8")
         return JSON.parse(raw)
     } catch {
-        ; File corrupt — return fresh structure
         return Map("profiles", Map("Default", Map()))
     }
 }
@@ -523,7 +569,13 @@ LoadProfilesJSON() {
 ; ── Write full Map → JSON file ────────────────────────────────
 SaveProfilesJSON(root) {
     global JSON_PATH
-    raw := JSON.stringify(root, , "  ")   ; pretty-printed, 2-space indent
+    ; FIX: ensure the settings directory exists before writing
+    ;      Without this, FileAppend silently fails on first run,
+    ;      making all profile save/load operations appear broken.
+    dirPath := SubStr(JSON_PATH, 1, InStr(JSON_PATH, "\",, -1) - 1)
+    if !DirExist(dirPath)
+        DirCreate(dirPath)
+    raw := JSON.stringify(root, , "  ")
     try FileDelete JSON_PATH
     FileAppend raw, JSON_PATH, "UTF-8"
 }
@@ -614,13 +666,10 @@ LoadProfile(name) {
     if profiles.Has(name) {
         try MapToCfg(profiles[name])
     }
-    ; Update lastUsed per Windows user and persist
     root["lastUsed_" A_UserName] := name
     SaveProfilesJSON(root)
-    ; Update window title
     global G_hwnd
     try WinSetTitle "HiveHub Macro v1.4.0 [" name "]", "ahk_id " G_hwnd
-    ; Push title to JS too
     JS('document.title = "HiveHub Macro v1.4.0 [' name ']"')
     PushStateToJS()
 }
@@ -640,19 +689,16 @@ SaveNamedProfile(name) {
 
 AddProfile(nameRaw := "") {
     global cfg, currentProfile
-    ; Name comes directly from JS button click (JSON-encoded string)
     name := Trim(StrReplace(nameRaw, '"', ''))
     if name = ""
-        name := Trim(cfg["profileName"])   ; fallback to last saved state
+        name := Trim(cfg["profileName"])
     if name = ""
         return
-    ; Check if it already exists in JSON
     root     := LoadProfilesJSON()
     profiles := root["profiles"]
     exists   := profiles.Has(name)
-    ; Set as current profile and save
     currentProfile := name
-    SaveNamedProfile(name)   ; writes cfg → JSON under this name
+    SaveNamedProfile(name)
     JS('window.HiveHub.setProfileFeedback("' (exists ? "Saved" : "Created") ': ' EscJ(name) '", true)')
     PushStateToJS()
 }
@@ -904,7 +950,18 @@ SnakeThread() {
 ; ================================================================
 ;  STARTUP
 ; ================================================================
-pToken := Gdip_Startup()
+
+; FIX: Walk.ahk also calls Gdip_Startup() at include-time (top of that file).
+; We skip a second startup here and share the token Walk.ahk already created
+; via the global pToken it set.  If Walk.ahk was changed to not do this,
+; uncomment the line below instead.
+;
+; pToken := Gdip_Startup()
+
+; Ensure pToken is available for shutdown even if Walk.ahk set it
+if !IsSet(pToken) || !pToken
+    pToken := Gdip_Startup()
+
 OnExit((*) => Gdip_Shutdown(pToken))
 
 ; Load last-used profile before building GUI
@@ -923,5 +980,5 @@ for n in list0
         found := true
 LoadProfile(found ? lastProfile : "Default")
 
-; Build GUI — blocks until WebView2 controller is ready
+; Build GUI — WebView2 controller is created here; G is now global so it persists
 BuildGUI()

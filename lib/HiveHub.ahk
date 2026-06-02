@@ -289,6 +289,7 @@ ParseJSONIntoCfg(json) {
 ; Reads the roblox:// or roblox-player:// protocol handler from the registry.
 ; Whichever bootstrapper is installed last wins — Bloxstrap, UWP, or standard.
 DetectRobloxInstallType() {
+    local A_LocalAppData := EnvGet("LOCALAPPDATA")
     cmd := ""
     for regKey in [
         "HKCU\SOFTWARE\Classes\roblox-player\shell\open\command",
@@ -309,14 +310,14 @@ DetectRobloxInstallType() {
         if InStr(cmd, "WindowsApps",, 1)
             return "UWP / Store"
         if InStr(cmd, "RobloxPlayer",, 1) || InStr(cmd, "RobloxStudio",, 1)
-            return "Windows"
+            return "Web Version"
     }
 
     ; Fallback: file-system checks if registry gave nothing
     if FileExist(A_LocalAppData "\Bloxstrap\Bloxstrap.exe")
         return "Bloxstrap"
     if DirExist(A_LocalAppData "\Roblox\Versions")
-        return "Windows"
+        return "Web Version"
     try {
         loop files A_ProgramFiles "\WindowsApps\ROBLOX*", "D"
             return "UWP / Store"

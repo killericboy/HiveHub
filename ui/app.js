@@ -18,6 +18,18 @@ window.HiveHub = {
     e.textContent=t; e.style.color=ok?'var(--lime)':'var(--red)'
     setTimeout(()=>e.textContent='',3000)
   },
+
+  // live speed + buff strip — called every 500ms while running
+  setLiveSpeed(spd, buffs) {
+    const el = $('speed-display')
+    if (el) el.textContent = spd > 0 ? '(' + spd + ')' : '(' + ($('baseSpeed').value||16) + ')'
+    const strip = $('buff-strip')
+    if (strip) {
+      strip.textContent = buffs || ''
+      strip.style.display = buffs ? 'inline' : 'none'
+    }
+  },
+
   loadState(data) {
     const s = typeof data==='string' ? JSON.parse(data) : data
     sv('baseSpeed',s.baseSpeed??16); sv('direction',s.direction??1)
@@ -38,7 +50,6 @@ window.HiveHub = {
     onPrivServerChange()
     $('speed-display').textContent='('+(s.baseSpeed??16)+')'
     if(s.profiles) renderProfileList(s.profiles, s.currentProfile)
-    // Update page title
     if(s.currentProfile) document.title='HiveHub Macro v1.4.0 ['+s.currentProfile+']'
   }
 }
@@ -158,8 +169,5 @@ function save(){
 }
 
 updateLengthDisplay()
-
-// Tell AHK that window.HiveHub is fully initialised and safe to call.
-// We fire it two ways: inline (fast) and via window.onload (safe fallback).
 ahk('JSReady')
 window.addEventListener('load', () => ahk('JSReady'))

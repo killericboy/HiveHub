@@ -33,14 +33,19 @@ bitmaps["pBMBearMother"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAABAAA
 
 offsetY := 0
 
+; ── Live speed state globals (read by HiveHub UpdateStats) ─────
+global lastDetectedSpeed := 0
+global lastHaste         := 0
+global lastOil           := false
+global lastSmoothie      := false
+global lastBear          := false
+global lastHastePlus     := false
+global lastCoconut       := false
+
 Walk(n, hasteCap:=0)
 {
-	;hasteCap values > 0 will cause all haste values lower than it to be treated as no haste but haste values above it will be treated as the cap value.
-	;In otherwords, no haste compensation up to the cap and then 100% compensation after that.
-	static freq := 0, init := DllCall("QueryPerformanceFrequency", "Int64*", &freq) ; obtain frequency on first execution
-	
-	d := freq // 8, l := n * freq * 4 ; 4 studs in a tile
-	
+	static freq := 0, init := DllCall("QueryPerformanceFrequency", "Int64*", &freq)
+	d := freq // 8, l := n * freq * 4
 	d += (v := DetectMovespeed(&s, &f, hasteCap)) * (f - s)
 	while (d < l) {
 		global paused, running
@@ -58,61 +63,58 @@ Walk(n, hasteCap:=0)
 DetectMovespeed(&s, &f, hasteCap:=0)
 {
 	DllCall("QueryPerformanceCounter", "Int64*", &s := 0)
-	
+
 	global hasty_guard, gifted_hasty, base_movespeed, buff_characters, bitmaps, offsetY
-	
+	global lastDetectedSpeed, lastHaste, lastOil, lastSmoothie
+	global lastBear, lastHastePlus, lastCoconut
+
 	; check roblox window exists
 	GetRobloxClientPos()
 	if (windowWidth = 0)
-		return (DllCall("QueryPerformanceCounter", "Int64*", &f := 0), 10000000) ; large number to break walk loop
-	
-	; get screen bitmap of buff area from client window
+		return (DllCall("QueryPerformanceCounter", "Int64*", &f := 0), 10000000)
+
+	; get screen bitmap of buff area
 	chdc := CreateCompatibleDC(), hbm := CreateDIBSection(windowWidth, 30, chdc), obm := SelectObject(chdc, hbm), hhdc := GetDC()
 	BitBlt(chdc, 0, 0, windowWidth, 30, hhdc, windowX, windowY+offsetY+48)
 	ReleaseDC(hhdc)
 	pBMArea := Gdip_CreateBitmapFromHBITMAP(hbm)
 	SelectObject(chdc, obm), DeleteObject(hbm), DeleteDC(hhdc), DeleteDC(chdc)
-	
-	; find haste buffs (haste, coconut haste)
+
+	; find haste buffs
 	x := 0
-	haste := 0 ; initially haste is number of hastes found (since haste = coconut haste icon)
-	Loop 3 ; melody, haste, coconut haste
+	haste := 0
+	Loop 3
 	{
 		if (Gdip_ImageSearch(pBMArea, bitmaps["pBMHaste"], &list, x, 14, , , , , 6) != 1)
-			break ; no possibility of haste
-		
+			break
 		x := SubStr(list, 1, InStr(list, ",")-1), y := SubStr(list, InStr(list, ",")+1)
-		
 		if (Gdip_ImageSearch(pBMArea, bitmaps["pBMMelody"], , x+2, , x+Max(16, 2*y-24), y, 12) = 0)
 		{
-			haste++ ; not melody, so haste
+			haste++
 			if (haste = 1)
-				x1 := x, y1 := y ; normal haste is always leftmost image
+				x1 := x, y1 := y
 		}
-		
-		x += 2*y-14 ; skip this buff on next search
+		x += 2*y-14
 	}
-	
-	; analyse haste stacks (haste: 0=none, 1=haste, 2=haste+coconut)
+
 	coconut_haste := (haste = 2) ? 1 : 0
 	if haste
 	{
-		Loop 9 ; look for each digit
+		Loop 9
 		{
 			if (Gdip_ImageSearch(pBMArea, buff_characters[10-A_Index], , x1+2*y1-44, Max(0, y1-18), x1+2*y1-14, y1-1) = 1)
 			{
-				haste := (A_Index = 9) ? 10 : 10 - A_Index ; haste now becomes stack number
+				haste := (A_Index = 9) ? 10 : 10 - A_Index
 				break
 			}
 			if (A_Index = 9)
-				haste := 1 ; no multiplier, therefore 1x
+				haste := 1
 		}
 	}
-	
-	; find other movespeed affecting buffs (haste+, bear, oil, super smoothie)
-	haste_plus := (Gdip_ImageSearch(pBMArea, bitmaps["pBMHastePlus"], , , 25, , 27, , , 2) = 1) ; SearchDirection 2 is faster for on/off
-	oil := (Gdip_ImageSearch(pBMArea, bitmaps["pBMOil"], , , 25, , 27, 4, , 2) = 1)
-	smoothie := (Gdip_ImageSearch(pBMArea, bitmaps["pBMSmoothie"], , , 25, , 27, 4, , 2) = 1)
+
+	haste_plus := (Gdip_ImageSearch(pBMArea, bitmaps["pBMHastePlus"], , , 25, , 27, , , 2) = 1)
+	oil        := (Gdip_ImageSearch(pBMArea, bitmaps["pBMOil"],        , , 25, , 27, 4, , 2) = 1)
+	smoothie   := (Gdip_ImageSearch(pBMArea, bitmaps["pBMSmoothie"],   , , 25, , 27, 4, , 2) = 1)
 	bear := 0
 	for v in ["Brown","Black","Panda","Polar","Gummy","Science","Mother"]
 	{
@@ -123,9 +125,18 @@ DetectMovespeed(&s, &f, hasteCap:=0)
 		}
 	}
 	Gdip_DisposeImage(pBMArea)
-	
-	; use movespeed formula on obtained values
+
+	; calculate live speed
 	v := ((base_movespeed + (coconut_haste ? 10 : 0) + (bear ? 6 : 0)) * (hasty_guard ? 1.1 : 1) * (gifted_hasty ? 1.2 : 1) * (1 + max(0, haste-hasteCap)*0.1) * (haste_plus ? 2 : 1) * (oil ? 1.2 : 1) * (smoothie ? 1.25 : 1))
-	
+
+	; ── write live state so UI UpdateStats can read them ───────
+	lastDetectedSpeed := v
+	lastHaste         := haste
+	lastOil           := oil
+	lastSmoothie      := smoothie
+	lastBear          := bear
+	lastHastePlus     := haste_plus
+	lastCoconut       := coconut_haste
+
 	return (DllCall("QueryPerformanceCounter", "Int64*", &f := 0), v)
 }

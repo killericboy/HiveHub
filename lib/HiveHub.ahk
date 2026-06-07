@@ -12,6 +12,7 @@
 #Include HyperSleep.ahk
 #Include Roblox.ahk
 #Include Walk.ahk
+#Include FieldGuard.ahk
 #Include WebView2.ahk
 #Include JSON.ahk
 
@@ -46,30 +47,33 @@ lastReconnectTick := 0
 
 windowX := 0, windowY := 0, windowWidth := 0, windowHeight := 0
 
-; ── Config map (mirrors JS state) ────────────────────────────
+; ── Config map ────────────────────────────────────────────────
 cfg := Map(
-    "baseSpeed",       16,
-    "direction",       1,
-    "lengthIdx",       3,
-    "width",           3,
-    "camAlign",        1,
-    "camSteps",        1,
-    "shiftLock",       false,
-    "autoHarvest",     true,
-    "keyDelay",        20,
-    "hotbarEnable",    false,
-    "hotbarInterval",  30,
-    "hotbarKeys",      Map(),
-    "privServer",      "",
-    "joinMethod",      1,
-    "reconnectEnable", false,
-    "reconnectHours",  0,
-    "reconnectHH",     0,
-    "reconnectMM",     0,
-    "fallbackPublic",  true,
-    "pubServer",       "https://www.roblox.com/games/15579077077/Hive-Hub",
-    "profileName",     "",
-    "selectedProfile", ""
+    "baseSpeed",          16,
+    "direction",          1,
+    "lengthIdx",          3,
+    "width",              3,
+    "camAlign",           1,
+    "camSteps",           1,
+    "shiftLock",          false,
+    "autoHarvest",        true,
+    "keyDelay",           20,
+    "hotbarEnable",       false,
+    "hotbarInterval",     30,
+    "hotbarKeys",         Map(),
+    "privServer",         "",
+    "joinMethod",         1,
+    "reconnectEnable",    false,
+    "reconnectHours",     0,
+    "reconnectHH",        0,
+    "reconnectMM",        0,
+    "fallbackPublic",     true,
+    "pubServer",          "https://www.roblox.com/games/15579077077/Hive-Hub",
+    "profileName",        "",
+    "selectedProfile",    "",
+    "fieldGuardEnable",   true,
+    "fieldGuardSkyColor", 0x5A9CCC,
+    "fieldGuardFldColor", 0x4A8430
 )
 
 ; ── Constants ─────────────────────────────────────────────────
@@ -78,8 +82,6 @@ JSON_PATH      := A_ScriptDir "\..\settings\profiles.json"
 BSS_PLACE_ID   := "1537690962"
 currentProfile := "Default"
 
-; FIX: Resolve UI path without ".." so WebView2 file:// navigation works cleanly
-; A_ScriptDir = "...\HiveHub\lib" — strip "\lib" to get the root folder
 UI_PATH := SubStr(A_ScriptDir, 1, InStr(A_ScriptDir, "\",, -1) - 1) "\ui\index.html"
 
 SizeNames := ["XS","S","M","L","XL"]
@@ -89,16 +91,10 @@ GetLengthTiles() => SizeTiles[cfg["lengthIdx"]]
 GetWidthTiles()  => cfg["width"]
 
 ; ── WebView2 globals ──────────────────────────────────────────
-; FIX: G must be global so the Gui object is NOT garbage-collected when
-;      BuildGUI() returns.  A local Gui gets destroyed the moment the
-;      function exits — taking the window, WebView2, and all JS with it.
-;      That was the root cause of "clicking does nothing on any tab".
 global G        := 0
-global wvc      := 0   ; WebView2.Controller
-global wv2      := 0   ; WebView2.Core  (CoreWebView2)
+global wvc      := 0
+global wv2      := 0
 global wv2ready := false
-
-; Store event-handler tokens globally so they are never garbage-collected
 global navToken := 0
 global msgToken := 0
 
@@ -106,18 +102,16 @@ global msgToken := 0
 ;  GUI + WebView2 SETUP
 ; ================================================================
 BuildGUI() {
-    ; FIX: declare G global so it survives after this function returns
     global G, wvc, wv2, wv2ready, currentProfile, navToken, msgToken
 
     G := Gui("+AlwaysOnTop", "HiveHub Macro v1.4.0 [" currentProfile "]")
     G.BackColor := "0d1825"
     G.OnEvent("Close", (*) => ExitApp())
-    G.OnEvent("Size",  OnGuiSize)        ; FIX: resize WebView2 when window resizes
+    G.OnEvent("Size",  OnGuiSize)
     G.Show("w540 h430")
 
     global G_hwnd := G.Hwnd
 
-    ; ── Create WebView2 using thqby's API ────────────────────
     dllFolder := (A_PtrSize = 8) ? "\64bit\" : "\32bit\"
     wv2dll := A_ScriptDir dllFolder "WebView2Loader.dll"
     if !FileExist(wv2dll)
@@ -125,15 +119,12 @@ BuildGUI() {
     wvc := WebView2.create(G.Hwnd, , , , , , wv2dll)
     wv2 := wvc.CoreWebView2
 
-    ; ── Navigate to the HTML UI ──────────────────────────────
     uiFile := "file:///" StrReplace(UI_PATH, "\", "/")
     wv2.Navigate(uiFile)
 
-    ; FIX: store tokens in globals — anonymous handlers can be GC'd otherwise
     navToken := wv2.add_NavigationCompleted(OnNavCompleted)
     msgToken := wv2.add_WebMessageReceived(OnWebMessage)
 
-    ; ── Tray icon ─────────────────────────────────────────────
     iconFile := A_ScriptDir "\..\assets\bee.ico"
     if FileExist(iconFile) {
         TraySetIcon iconFile
@@ -142,23 +133,19 @@ BuildGUI() {
     }
 }
 
-; Resize WebView2 to fill the window whenever the user resizes it
 OnGuiSize(GuiObj, MinMax, Width, Height) {
     global wvc
-    if (wvc && MinMax != -1)   ; -1 = minimized
+    if (wvc && MinMax != -1)
         wvc.Fill()
 }
 
-; Called when page finishes loading — push state to JS + refresh detection
 OnNavCompleted(sender, args) {
     global wv2ready
     wv2ready := true
     PushStateToJS()
-    ; FIX: populate the Roblox-detected indicator automatically on load
     JS_RefreshDetected()
 }
 
-; Called when JS sends window.chrome.webview.postMessage(...)
 OnWebMessage(sender, args) {
     msg := args.TryGetWebMessageAsString()
     if !msg
@@ -189,14 +176,12 @@ OnWebMessage(sender, args) {
     }
 }
 
-; ── Execute JS in the page ────────────────────────────────────
 JS(script) {
     global wv2, wv2ready
     if wv2ready
         wv2.ExecuteScriptAsync(script)
 }
 
-; ── Build and push full state JSON to JS ──────────────────────
 PushStateToJS(*) {
     global cfg, currentProfile, wv2ready
     if !wv2ready
@@ -213,43 +198,44 @@ PushStateToJS(*) {
         keys .= '"' k '":' (v ? "true" : "false") ","
     keys := RTrim(keys, ",") "}"
 
-    sl  := cfg["shiftLock"]       ? "true" : "false"
-    ah  := cfg["autoHarvest"]     ? "true" : "false"
-    he  := cfg["hotbarEnable"]    ? "true" : "false"
-    re  := cfg["reconnectEnable"] ? "true" : "false"
-    fp  := cfg["fallbackPublic"]  ? "true" : "false"
+    sl  := cfg["shiftLock"]        ? "true" : "false"
+    ah  := cfg["autoHarvest"]      ? "true" : "false"
+    he  := cfg["hotbarEnable"]     ? "true" : "false"
+    re  := cfg["reconnectEnable"]  ? "true" : "false"
+    fp  := cfg["fallbackPublic"]   ? "true" : "false"
+    fge := cfg["fieldGuardEnable"] ? "true" : "false"
+
     json := "{"
-    json .= '"baseSpeed":'      cfg["baseSpeed"]      ","
-    json .= '"direction":'      cfg["direction"]       ","
-    json .= '"lengthIdx":'      cfg["lengthIdx"]       ","
-    json .= '"width":'          cfg["width"]           ","
-    json .= '"camAlign":'       cfg["camAlign"]        ","
-    json .= '"camSteps":'       cfg["camSteps"]        ","
-    json .= '"shiftLock":'      sl                     ","
-    json .= '"autoHarvest":'    ah                     ","
-    json .= '"keyDelay":'       cfg["keyDelay"]        ","
-    json .= '"hotbarEnable":'   he                     ","
-    json .= '"hotbarInterval":' cfg["hotbarInterval"]  ","
-    json .= '"hotbarKeys":'     keys                   ","
-    json .= '"privServer":"'    EscJ(cfg["privServer"]) '",'
-    json .= '"joinMethod":'     cfg["joinMethod"]      ","
-    json .= '"reconnectEnable":' re                    ","
-    json .= '"reconnectHours":' cfg["reconnectHours"]  ","
-    json .= '"reconnectHH":'    cfg["reconnectHH"]     ","
-    json .= '"reconnectMM":'    cfg["reconnectMM"]     ","
-    json .= '"fallbackPublic":' fp                     ","
-    json .= '"pubServer":"'     EscJ(cfg["pubServer"])  '",'
-    json .= '"profiles":'       profileJSON            ","
-    json .= '"currentProfile":"' EscJ(currentProfile)  '"'
+    json .= '"baseSpeed":'        cfg["baseSpeed"]       ","
+    json .= '"direction":'        cfg["direction"]        ","
+    json .= '"lengthIdx":'        cfg["lengthIdx"]        ","
+    json .= '"width":'            cfg["width"]            ","
+    json .= '"camAlign":'         cfg["camAlign"]         ","
+    json .= '"camSteps":'         cfg["camSteps"]         ","
+    json .= '"shiftLock":'        sl                      ","
+    json .= '"autoHarvest":'      ah                      ","
+    json .= '"keyDelay":'         cfg["keyDelay"]         ","
+    json .= '"hotbarEnable":'     he                      ","
+    json .= '"hotbarInterval":'   cfg["hotbarInterval"]   ","
+    json .= '"hotbarKeys":'       keys                    ","
+    json .= '"privServer":"'      EscJ(cfg["privServer"])  '",'
+    json .= '"joinMethod":'       cfg["joinMethod"]       ","
+    json .= '"reconnectEnable":'  re                      ","
+    json .= '"reconnectHours":'   cfg["reconnectHours"]   ","
+    json .= '"reconnectHH":'      cfg["reconnectHH"]      ","
+    json .= '"reconnectMM":'      cfg["reconnectMM"]      ","
+    json .= '"fallbackPublic":'   fp                      ","
+    json .= '"pubServer":"'       EscJ(cfg["pubServer"])   '",'
+    json .= '"fieldGuardEnable":' fge                     ","
+    json .= '"profiles":'         profileJSON             ","
+    json .= '"currentProfile":"'  EscJ(currentProfile)    '"'
     json .= "}"
 
     JS("window.HiveHub.loadState(" json ")")
 }
 
-; ── JSON string escape ────────────────────────────────────────
 EscJ(s) => StrReplace(StrReplace(StrReplace(s, "\", "\\"), '"', '\"'), "`n", "\n")
 
-; ── Parse JSON from JS into cfg ──────────────────────────────
 JS_Save(data) {
     global cfg
     ParseJSONIntoCfg(data)
@@ -261,11 +247,12 @@ ParseJSONIntoCfg(json) {
 
     for key in ["baseSpeed","direction","lengthIdx","width","camAlign","camSteps",
                 "keyDelay","hotbarInterval","joinMethod","reconnectHours",
-                "reconnectHH","reconnectMM"] {
-        if RegExMatch(json, '"' key '"\s*:\s*([\d.]+)', &m)
+                "reconnectHH","reconnectMM","fieldGuardSkyColor","fieldGuardFldColor"] {
+        if RegExMatch(json, '"' key '"\s*:\s*([\d.x]+)', &m)
             cfg[key] := Float(m[1])
     }
-    for key in ["shiftLock","autoHarvest","hotbarEnable","reconnectEnable","fallbackPublic"] {
+    for key in ["shiftLock","autoHarvest","hotbarEnable","reconnectEnable",
+                "fallbackPublic","fieldGuardEnable"] {
         if RegExMatch(json, '"' key '"\s*:\s*(true|false)', &m)
             cfg[key] := (m[1] = "true")
     }
@@ -285,9 +272,6 @@ ParseJSONIntoCfg(json) {
     }
 }
 
-; ── Detect Roblox install type (registry-based, same approach as Natro Macro) ─
-; Reads the roblox:// or roblox-player:// protocol handler from the registry.
-; Whichever bootstrapper is installed last wins — Bloxstrap, UWP, or standard.
 DetectRobloxInstallType() {
     local A_LocalAppData := EnvGet("LOCALAPPDATA")
     cmd := ""
@@ -303,7 +287,6 @@ DetectRobloxInstallType() {
                 break
         }
     }
-
     if cmd != "" {
         if InStr(cmd, "Bloxstrap",, 1)
             return "Bloxstrap"
@@ -312,8 +295,6 @@ DetectRobloxInstallType() {
         if InStr(cmd, "RobloxPlayer",, 1) || InStr(cmd, "RobloxStudio",, 1)
             return "Web Version"
     }
-
-    ; Fallback: file-system checks if registry gave nothing
     if FileExist(A_LocalAppData "\Bloxstrap\Bloxstrap.exe")
         return "Bloxstrap"
     if DirExist(A_LocalAppData "\Roblox\Versions")
@@ -322,21 +303,16 @@ DetectRobloxInstallType() {
         loop files A_ProgramFiles "\WindowsApps\ROBLOX*", "D"
             return "UWP / Store"
     }
-
     return ""
 }
 
-; ── Refresh Detected Roblox label ─────────────────────────────────────────────
 JS_RefreshDetected() {
     installType := DetectRobloxInstallType()
     isRunning   := (GetRobloxHWND() != 0)
-
     if installType = "" {
         JS('window.HiveHub.setDetected("Not detected", false)')
         return
     }
-
-    ; Show install type; append a live dot when Roblox is currently open
     label := installType (isRunning ? " ●" : "")
     JS('window.HiveHub.setDetected("' EscJ(label) '", true)')
 }
@@ -455,7 +431,6 @@ CheckReconnect() {
     global running, lastReconnectTick, cfg
     if !running
         return
-
     hh := Integer(cfg["reconnectHH"])
     mm := Integer(cfg["reconnectMM"])
     if (hh > 0 || mm > 0) {
@@ -467,7 +442,6 @@ CheckReconnect() {
             return
         }
     }
-
     hrs := Float(cfg["reconnectHours"])
     if (hrs > 0 && lastReconnectTick > 0) {
         if ((A_TickCount - lastReconnectTick) / 3600000.0 >= hrs)
@@ -478,11 +452,9 @@ CheckReconnect() {
 DoReconnect(*) {
     global running, lastReconnectTick, cfg, HIVEHUB_URL
     lastReconnectTick := A_TickCount
-
     if running
         StopMacro()
     Sleep 500
-
     result := ValidateServerLink(cfg["privServer"])
     if (result.valid && result.type != "public") {
         if cfg["joinMethod"] = 1
@@ -496,23 +468,59 @@ DoReconnect(*) {
 }
 
 ; ================================================================
-;  STATS
+;  STATS  —  live speed + buff tags every 500ms
 ; ================================================================
 UpdateStats() {
-    global running, runStartTime, cycleCount, currentRow, currentPass
+    global running, runStartTime, cycleCount, currentRow, currentPass, cfg
+    global lastDetectedSpeed, lastHaste, lastOil, lastSmoothie
+    global lastBear, lastHastePlus, lastCoconut
+
     if !running
         return
+
     elapsed := A_TickCount - runStartTime
     s := Format("{:02}", Floor(Mod(elapsed / 1000, 60)))
     m := Format("{:02}", Floor(elapsed / 60000))
-    p := currentPass = 1 ? "Forward" : (currentPass = 2 ? "Backward" : "-")
-    JS('window.HiveHub.setStats("' m ':' s ' | Pass:' p ' Row:' currentRow ' Cycle:' cycleCount '")')
+    p := currentPass = 1 ? "Fwd" : (currentPass = 2 ? "Back" : "-")
+
+    ; live speed — falls back to base config before first Walk()
+    liveSpd := (lastDetectedSpeed > 0)
+             ? Round(lastDetectedSpeed, 1)
+             : cfg["baseSpeed"]
+
+    ; buff label string
+    buffStr := ""
+    if lastHastePlus
+        buffStr .= "H+ "
+    if lastHaste > 0
+        buffStr .= "H×" lastHaste " "
+    if lastCoconut
+        buffStr .= "Coco "
+    if lastOil
+        buffStr .= "Oil "
+    if lastSmoothie
+        buffStr .= "Smth "
+    if lastBear
+        buffStr .= "Bear "
+    buffStr := Trim(buffStr)
+
+    rc    := FieldGuard_GetRecoveryCount()
+    rcStr := rc > 0 ? " G:" rc : ""
+
+    JS('window.HiveHub.setStats("' m ':' s ' | ' p ' R:' currentRow ' C:' cycleCount rcStr '")')
+    JS('window.HiveHub.setLiveSpeed(' liveSpd ', "' buffStr '")')
 }
 
 ResetStats() {
     global cycleCount, currentRow, currentPass, runStartTime
+    global lastDetectedSpeed, lastHaste, lastOil, lastSmoothie
+    global lastBear, lastHastePlus, lastCoconut
     cycleCount := 0, currentRow := 0, currentPass := 0, runStartTime := 0
+    lastDetectedSpeed := 0, lastHaste := 0
+    lastOil := false, lastSmoothie := false
+    lastBear := false, lastHastePlus := false, lastCoconut := false
     JS('window.HiveHub.setStats("00:00 | P:- R:0 C:0")')
+    JS('window.HiveHub.setLiveSpeed(0, "")')
 }
 
 ; ================================================================
@@ -548,10 +556,8 @@ SendAutoKey() {
 }
 
 ; ================================================================
-;  PROFILE SYSTEM  —  Pure JSON (single profiles.json file)
+;  PROFILE SYSTEM
 ; ================================================================
-
-; ── Load full JSON file → return parsed Map ───────────────────
 LoadProfilesJSON() {
     global JSON_PATH
     if !FileExist(JSON_PATH) {
@@ -560,19 +566,15 @@ LoadProfilesJSON() {
         return root
     }
     try {
-        raw  := FileRead(JSON_PATH, "UTF-8")
+        raw := FileRead(JSON_PATH, "UTF-8")
         return JSON.parse(raw)
     } catch {
         return Map("profiles", Map("Default", Map()))
     }
 }
 
-; ── Write full Map → JSON file ────────────────────────────────
 SaveProfilesJSON(root) {
     global JSON_PATH
-    ; FIX: ensure the settings directory exists before writing
-    ;      Without this, FileAppend silently fails on first run,
-    ;      making all profile save/load operations appear broken.
     dirPath := SubStr(JSON_PATH, 1, InStr(JSON_PATH, "\",, -1) - 1)
     if !DirExist(dirPath)
         DirCreate(dirPath)
@@ -581,7 +583,6 @@ SaveProfilesJSON(root) {
     FileAppend raw, JSON_PATH, "UTF-8"
 }
 
-; ── Get ordered profile name list ─────────────────────────────
 GetProfileList() {
     root     := LoadProfilesJSON()
     profiles := root["profiles"]
@@ -591,30 +592,32 @@ GetProfileList() {
     return list.Length > 0 ? list : ["Default"]
 }
 
-; ── Build a Map from current cfg ──────────────────────────────
 CfgToMap() {
     global cfg, HIVEHUB_URL
     m := Map()
-    m["baseSpeed"]       := cfg["baseSpeed"]
-    m["direction"]       := cfg["direction"]
-    m["lengthIdx"]       := cfg["lengthIdx"]
-    m["width"]           := cfg["width"]
-    m["camAlign"]        := cfg["camAlign"]
-    m["camSteps"]        := cfg["camSteps"]
-    m["shiftLock"]       := cfg["shiftLock"]       ? 1 : 0
-    m["autoHarvest"]     := cfg["autoHarvest"]     ? 1 : 0
-    m["keyDelay"]        := cfg["keyDelay"]
-    m["hotbarEnable"]    := cfg["hotbarEnable"]    ? 1 : 0
-    m["hotbarInterval"]  := cfg["hotbarInterval"]
-    m["privServer"]      := cfg["privServer"]
-    m["joinMethod"]      := cfg["joinMethod"]
-    m["reconnectEnable"] := cfg["reconnectEnable"] ? 1 : 0
-    m["reconnectHours"]  := cfg["reconnectHours"]
-    m["reconnectHH"]     := cfg["reconnectHH"]
-    m["reconnectMM"]     := cfg["reconnectMM"]
-    m["fallbackPublic"]  := cfg["fallbackPublic"]  ? 1 : 0
+    m["baseSpeed"]          := cfg["baseSpeed"]
+    m["direction"]          := cfg["direction"]
+    m["lengthIdx"]          := cfg["lengthIdx"]
+    m["width"]              := cfg["width"]
+    m["camAlign"]           := cfg["camAlign"]
+    m["camSteps"]           := cfg["camSteps"]
+    m["shiftLock"]          := cfg["shiftLock"]        ? 1 : 0
+    m["autoHarvest"]        := cfg["autoHarvest"]      ? 1 : 0
+    m["keyDelay"]           := cfg["keyDelay"]
+    m["hotbarEnable"]       := cfg["hotbarEnable"]     ? 1 : 0
+    m["hotbarInterval"]     := cfg["hotbarInterval"]
+    m["privServer"]         := cfg["privServer"]
+    m["joinMethod"]         := cfg["joinMethod"]
+    m["reconnectEnable"]    := cfg["reconnectEnable"]  ? 1 : 0
+    m["reconnectHours"]     := cfg["reconnectHours"]
+    m["reconnectHH"]        := cfg["reconnectHH"]
+    m["reconnectMM"]        := cfg["reconnectMM"]
+    m["fallbackPublic"]     := cfg["fallbackPublic"]   ? 1 : 0
     pub := Trim(cfg["pubServer"])
-    m["pubServer"]       := (pub = "") ? HIVEHUB_URL : pub
+    m["pubServer"]          := (pub = "") ? HIVEHUB_URL : pub
+    m["fieldGuardEnable"]   := cfg["fieldGuardEnable"] ? 1 : 0
+    m["fieldGuardSkyColor"] := cfg["fieldGuardSkyColor"]
+    m["fieldGuardFldColor"] := cfg["fieldGuardFldColor"]
     hk := Map()
     for k, v in cfg["hotbarKeys"]
         hk[k] := v ? 1 : 0
@@ -622,33 +625,35 @@ CfgToMap() {
     return m
 }
 
-; ── Apply a parsed profile Map into cfg ───────────────────────
 MapToCfg(m) {
     global cfg, HIVEHUB_URL
     G(key, def) {
         try return m[key]
         return def
     }
-    cfg["baseSpeed"]       := Integer(G("baseSpeed",      16))
-    cfg["direction"]       := Integer(G("direction",      1))
-    cfg["lengthIdx"]       := Integer(G("lengthIdx",      3))
-    cfg["width"]           := Integer(G("width",          3))
-    cfg["camAlign"]        := Integer(G("camAlign",       1))
-    cfg["camSteps"]        := Integer(G("camSteps",       1))
-    cfg["shiftLock"]       := Integer(G("shiftLock",      0)) = 1
-    cfg["autoHarvest"]     := Integer(G("autoHarvest",    1)) = 1
-    cfg["keyDelay"]        := Integer(G("keyDelay",       20))
-    cfg["hotbarEnable"]    := Integer(G("hotbarEnable",   0)) = 1
-    cfg["hotbarInterval"]  := Integer(G("hotbarInterval", 30))
-    cfg["privServer"]      := G("privServer",             "")
-    cfg["joinMethod"]      := Integer(G("joinMethod",     1))
-    cfg["reconnectEnable"] := Integer(G("reconnectEnable",0)) = 1
-    cfg["reconnectHours"]  := Float(G("reconnectHours",   0))
-    cfg["reconnectHH"]     := Integer(G("reconnectHH",    0))
-    cfg["reconnectMM"]     := Integer(G("reconnectMM",    0))
-    cfg["fallbackPublic"]  := Integer(G("fallbackPublic", 1)) = 1
+    cfg["baseSpeed"]          := Integer(G("baseSpeed",         16))
+    cfg["direction"]          := Integer(G("direction",         1))
+    cfg["lengthIdx"]          := Integer(G("lengthIdx",         3))
+    cfg["width"]              := Integer(G("width",             3))
+    cfg["camAlign"]           := Integer(G("camAlign",          1))
+    cfg["camSteps"]           := Integer(G("camSteps",          1))
+    cfg["shiftLock"]          := Integer(G("shiftLock",         0)) = 1
+    cfg["autoHarvest"]        := Integer(G("autoHarvest",       1)) = 1
+    cfg["keyDelay"]           := Integer(G("keyDelay",          20))
+    cfg["hotbarEnable"]       := Integer(G("hotbarEnable",      0)) = 1
+    cfg["hotbarInterval"]     := Integer(G("hotbarInterval",    30))
+    cfg["privServer"]         := G("privServer",                "")
+    cfg["joinMethod"]         := Integer(G("joinMethod",        1))
+    cfg["reconnectEnable"]    := Integer(G("reconnectEnable",   0)) = 1
+    cfg["reconnectHours"]     := Float(G("reconnectHours",      0))
+    cfg["reconnectHH"]        := Integer(G("reconnectHH",       0))
+    cfg["reconnectMM"]        := Integer(G("reconnectMM",       0))
+    cfg["fallbackPublic"]     := Integer(G("fallbackPublic",    1)) = 1
     pub := G("pubServer", "")
-    cfg["pubServer"]       := (pub = "") ? HIVEHUB_URL : pub
+    cfg["pubServer"]          := (pub = "") ? HIVEHUB_URL : pub
+    cfg["fieldGuardEnable"]   := Integer(G("fieldGuardEnable",  1)) = 1
+    cfg["fieldGuardSkyColor"] := Integer(G("fieldGuardSkyColor", 0x5A9CCC))
+    cfg["fieldGuardFldColor"] := Integer(G("fieldGuardFldColor", 0x4A8430))
     keys := Map()
     try {
         hk := m["hotbarKeys"]
@@ -658,15 +663,13 @@ MapToCfg(m) {
     cfg["hotbarKeys"] := keys
 }
 
-; ── Load a profile by name ────────────────────────────────────
 LoadProfile(name) {
     global currentProfile, cfg
     currentProfile := name
     root     := LoadProfilesJSON()
     profiles := root["profiles"]
-    if profiles.Has(name) {
+    if profiles.Has(name)
         try MapToCfg(profiles[name])
-    }
     root["lastUsed_" A_UserName] := name
     SaveProfilesJSON(root)
     global G_hwnd
@@ -675,15 +678,14 @@ LoadProfile(name) {
     PushStateToJS()
 }
 
-; ── Save current cfg into the active profile ─────────────────
 SaveProfile() {
     global currentProfile
     SaveNamedProfile(currentProfile)
 }
 
 SaveNamedProfile(name) {
-    root                    := LoadProfilesJSON()
-    root["profiles"][name]  := CfgToMap()
+    root                   := LoadProfilesJSON()
+    root["profiles"][name] := CfgToMap()
     root["lastUsed_" A_UserName] := name
     SaveProfilesJSON(root)
 }
@@ -695,9 +697,8 @@ AddProfile(nameRaw := "") {
         name := Trim(cfg["profileName"])
     if name = ""
         return
-    root     := LoadProfilesJSON()
-    profiles := root["profiles"]
-    exists   := profiles.Has(name)
+    root   := LoadProfilesJSON()
+    exists := root["profiles"].Has(name)
     currentProfile := name
     SaveNamedProfile(name)
     JS('window.HiveHub.setProfileFeedback("' (exists ? "Saved" : "Created") ': ' EscJ(name) '", true)')
@@ -787,6 +788,8 @@ ToggleHarvest() {
 ; ================================================================
 StartMacro(*) {
     global running, paused, runStartTime, base_movespeed, cfg
+    global FG_Enabled, FG_SkyColorSample, FG_FieldColorSample
+
     if running
         return
     if !GetRobloxClientPos() {
@@ -799,6 +802,10 @@ StartMacro(*) {
         return
     }
     base_movespeed := spd
+
+    FG_Enabled          := cfg["fieldGuardEnable"]
+    FG_SkyColorSample   := Integer(cfg["fieldGuardSkyColor"])
+    FG_FieldColorSample := Integer(cfg["fieldGuardFldColor"])
 
     ResetStats()
     RevertCamera()
@@ -816,6 +823,8 @@ StartMacro(*) {
     camSteps := cfg["camSteps"]
     if (camDir != "None" && camSteps > 0)
         RotateCamera(camDir, camSteps)
+
+    FieldGuard_Init()
 
     lastReconnectTick := A_TickCount
     SetTimer UpdateStats, 500
@@ -889,6 +898,7 @@ SnakeThread() {
     }
 
     while running {
+        ; ── Pass 1: forward ───────────────────────────────────
         currentPass := 1
         curKey := keyA
         loop lengthT {
@@ -897,9 +907,18 @@ SnakeThread() {
             currentRow := A_Index
             Send "{" curKey " down}"
             Walk(widthT)
+
+            revKey := (curKey = keyA) ? keyB : keyA
+            if !FieldGuard_AfterStep(curKey, revKey) {
+                Send "{" curKey " up}"
+                StopMacro()
+                return
+            }
+
             if A_Index < lengthT {
                 Send "{" curKey " up}{" FwdKey " down}"
                 Walk(1)
+                FieldGuard_AfterStep(FwdKey, BackKey)
                 curKey := (curKey = keyA) ? keyB : keyA
                 Send "{" FwdKey " up}{" curKey " down}"
             } else {
@@ -914,6 +933,7 @@ SnakeThread() {
         if !running
             break
 
+        ; ── Pass 2: backward ──────────────────────────────────
         currentPass := 2
         loop lengthT {
             if !running
@@ -921,9 +941,18 @@ SnakeThread() {
             currentRow := A_Index
             Send "{" curKey " down}"
             Walk(widthT)
+
+            revKey := (curKey = keyA) ? keyB : keyA
+            if !FieldGuard_AfterStep(curKey, revKey) {
+                Send "{" curKey " up}"
+                StopMacro()
+                return
+            }
+
             if A_Index < lengthT {
                 Send "{" curKey " up}{" BackKey " down}"
                 Walk(1)
+                FieldGuard_AfterStep(BackKey, FwdKey)
                 curKey := (curKey = keyA) ? keyB : keyA
                 Send "{" BackKey " up}{" curKey " down}"
             } else {
@@ -951,21 +980,11 @@ SnakeThread() {
 ; ================================================================
 ;  STARTUP
 ; ================================================================
-
-; FIX: Walk.ahk also calls Gdip_Startup() at include-time (top of that file).
-; We skip a second startup here and share the token Walk.ahk already created
-; via the global pToken it set.  If Walk.ahk was changed to not do this,
-; uncomment the line below instead.
-;
-; pToken := Gdip_Startup()
-
-; Ensure pToken is available for shutdown even if Walk.ahk set it
 if !IsSet(pToken) || !pToken
     pToken := Gdip_Startup()
 
 OnExit((*) => Gdip_Shutdown(pToken))
 
-; Load last-used profile before building GUI
 lastProfile := ""
 try {
     root0       := LoadProfilesJSON()
@@ -981,5 +1000,4 @@ for n in list0
         found := true
 LoadProfile(found ? lastProfile : "Default")
 
-; Build GUI — WebView2 controller is created here; G is now global so it persists
 BuildGUI()

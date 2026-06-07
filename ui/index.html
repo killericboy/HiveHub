@@ -29,6 +29,7 @@
           <div class="row" style="margin-bottom:5px">
             <span class="slabel" style="margin:0">WALK SPEED</span>
             <span class="vdisplay" id="speed-display">(16)</span>
+            <span id="buff-strip" style="display:none;font-size:9px;color:var(--gold);margin-left:4px;font-weight:700"></span>
           </div>
           <div class="row" style="margin-bottom:0">
             <div class="stepper">
@@ -163,25 +164,28 @@
 
       <div class="slabel">Reconnect</div>
       <div class="card">
-        <label class="check-row" onclick="toggleCheck('reconnectEnable')" style="margin-bottom:5px">
-          <input type="checkbox" id="reconnectEnable" onchange="save()">
-          <div class="check-box"></div>
-          <span class="check-label">Enable auto-reconnect</span>
-        </label>
-        <div class="row" style="margin-bottom:5px">
-          <span class="label">Every</span>
-          <div class="stepper">
+
+        <!-- ── Enable + timer all on one row ── -->
+        <div class="row" style="margin-bottom:5px;flex-wrap:nowrap;gap:6px">
+          <label class="check-row" onclick="toggleCheck('reconnectEnable')" style="flex-shrink:0">
+            <input type="checkbox" id="reconnectEnable" onchange="save()">
+            <div class="check-box"></div>
+            <span class="check-label">Auto-reconnect</span>
+          </label>
+          <span class="label" style="flex-shrink:0">Every</span>
+          <div class="stepper" style="flex-shrink:0">
             <button onclick="stepFloat('reconnectHours',-0.5)">−</button>
-            <input type="number" id="reconnectHours" value="0" min="0" step="0.5" oninput="save()" style="width:42px">
+            <input type="number" id="reconnectHours" value="0" min="0" step="0.5" oninput="save()" style="width:36px">
             <button onclick="stepFloat('reconnectHours',0.5)">+</button>
           </div>
-          <span class="label">hrs · UTC</span>
-          <div class="time-input">
+          <span class="label" style="flex-shrink:0">hrs · UTC</span>
+          <div class="time-input" style="flex-shrink:0">
             <input type="number" id="reconnectHH" value="0" min="0" max="23" oninput="save()">
             <span class="label">:</span>
             <input type="number" id="reconnectMM" value="0" min="0" max="59" oninput="save()">
           </div>
         </div>
+
         <label class="check-row" onclick="toggleCheck('fallbackPublic')" style="margin-bottom:5px">
           <input type="checkbox" id="fallbackPublic" checked onchange="save()">
           <div class="check-box"></div>
@@ -189,8 +193,6 @@
         </label>
         <input type="text" id="pubServer" class="input-full" value="https://www.roblox.com/games/15579077077/Hive-Hub" oninput="save()">
       </div>
-
-
 
     </div>
 

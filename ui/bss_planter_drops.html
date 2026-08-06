@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BSS Planter Drops</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #040d12;
+    --surface: #071520;
+    --card: #0c1e2e;
+    --card-hover: #122536;
+    --border: #1a3a52;
+    --gold: #00e5ff;
+    --amber: #00bcd4;
+    --honey: #0097a7;
+    --green: #69ff9a;
+    --blue: #448aff;
+    --red: #ff5252;
+    --purple: #b87fff;
+    --teal: #00e5ff;
+    --muted: #4a6a7a;
+    --text: #d0f0ff;
+    --text-dim: #6a9ab0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* honeycomb bg pattern */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(0,229,255,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(0,188,212,0.04) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .hex-bg {
+    position: fixed;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0-5.7L51.5 47V19L28 5.7 4.5 19v28L28 60.3z' fill='%2300e5ff'/%3E%3Cpath d='M28 100L0 84V50l28 16 28-16v34L28 100zm0-5.7l23.5-13.6V53.7L28 67.4 4.5 53.7v27L28 94.3z' fill='%2300e5ff'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 2.4rem;
+    background: linear-gradient(135deg, #00e5ff, #69fff9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.5px;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* controls */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    margin-bottom: 28px;
+    align-items: end;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-group label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+  }
+
+  select, input[type="text"] {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    width: 100%;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%23a89870'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+
+  select:focus, input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(245,200,66,0.12);
+  }
+
+  .reset-btn {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    color: var(--text-dim);
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .reset-btn:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-pill span {
+    color: var(--gold);
+    font-size: 1rem;
+  }
+
+  /* drop type filter pills */
+  .filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all 0.18s;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    background: var(--card);
+    color: var(--text-dim);
+    border-color: var(--border);
+  }
+
+  .pill.active, .pill:hover {
+    color: var(--bg);
+  }
+
+  .pill[data-type="all"].active    { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+  .pill[data-type="guaranteed"].active { background: var(--green); border-color: var(--green); color: var(--bg); }
+  .pill[data-type="bonus_drop"].active { background: var(--purple); border-color: var(--purple); }
+  .pill[data-type="random"].active { background: var(--muted); border-color: var(--muted); color: #fff; }
+  .pill[data-type="high_chance"].active { background: var(--teal); border-color: var(--teal); color: var(--bg); }
+  .pill[data-type="33%_chance"].active { background: var(--honey); border-color: var(--honey); color: var(--bg); }
+
+  .pill[data-type="all"]:hover    { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+  .pill[data-type="guaranteed"]:hover { background: var(--green); border-color: var(--green); color: var(--bg); }
+  .pill[data-type="bonus_drop"]:hover { background: var(--purple); border-color: var(--purple); }
+  .pill[data-type="random"]:hover { background: var(--muted); border-color: var(--muted); color: #fff; }
+  .pill[data-type="high_chance"]:hover { background: var(--teal); border-color: var(--teal); color: var(--bg); }
+  .pill[data-type="33%_chance"]:hover { background: var(--honey); border-color: var(--honey); color: var(--bg); }
+
+  /* item sections */
+  .item-section {
+    margin-bottom: 28px;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .item-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .item-name {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.3rem;
+    color: var(--gold);
+    letter-spacing: 0.5px;
+  }
+
+  .drop-count-badge {
+    background: var(--border);
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 9px;
+    border-radius: 10px;
+    letter-spacing: 1px;
+  }
+
+  .chevron {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+  }
+
+  .item-section.collapsed .chevron { transform: rotate(-90deg); }
+  .item-section.collapsed .drops-grid { display: none; }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+    margin-bottom: 12px;
+  }
+
+  /* drops grid */
+  .drops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+
+  /* drop card */
+  .drop-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    transition: border-color 0.2s, transform 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-card:hover {
+    background: var(--card-hover);
+    transform: translateY(-2px);
+  }
+
+  .drop-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .drop-card[data-type="guaranteed"]::before         { background: var(--green); }
+  .drop-card[data-type="guaranteed"]:hover            { border-color: rgba(110,207,114,0.4); }
+  .drop-card[data-type="higher_chance"]::before       { background: var(--blue); }
+  .drop-card[data-type="higher_chance"]:hover         { border-color: rgba(91,184,245,0.4); }
+  .drop-card[data-type="bonus_drop"]::before          { background: var(--purple); }
+  .drop-card[data-type="bonus_drop"]:hover            { border-color: rgba(184,127,255,0.4); }
+  .drop-card[data-type="bonus_higher_chance"]::before { background: var(--amber); }
+  .drop-card[data-type="bonus_higher_chance"]:hover   { border-color: rgba(232,150,58,0.4); }
+  .drop-card[data-type="random"]::before              { background: var(--muted); }
+  .drop-card[data-type="random"]:hover                { border-color: rgba(122,110,82,0.4); }
+  .drop-card[data-type="high_chance"]::before         { background: var(--teal); }
+  .drop-card[data-type="high_chance"]:hover           { border-color: rgba(78,205,196,0.4); }
+  .drop-card[data-type="guaranteed_double"]::before   { background: var(--red); }
+  .drop-card[data-type="guaranteed_double"]:hover     { border-color: rgba(240,100,100,0.4); }
+  .drop-card[data-type="33%_chance"]::before          { background: var(--honey); }
+  .drop-card[data-type="33%_chance"]:hover            { border-color: rgba(201,124,26,0.4); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .planter-name {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .type-badge {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 3px 9px;
+    border-radius: 8px;
+  }
+
+  .badge-guaranteed         { background: rgba(110,207,114,0.18); color: var(--green); }
+  .badge-higher_chance      { background: rgba(91,184,245,0.18);  color: var(--blue); }
+  .badge-bonus_drop         { background: rgba(184,127,255,0.18); color: var(--purple); }
+  .badge-bonus_higher_chance{ background: rgba(232,150,58,0.18);  color: var(--amber); }
+  .badge-random             { background: rgba(122,110,82,0.18);  color: var(--muted); }
+  .badge-high_chance        { background: rgba(78,205,196,0.18);  color: var(--teal); }
+  .badge-guaranteed_double  { background: rgba(240,100,100,0.18); color: var(--red); }
+  .badge-33_chance          { background: rgba(201,124,26,0.18);  color: var(--honey); }
+
+  /* field display */
+  .field-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field-single {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .field-sequence {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .field-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .field-arrow {
+    color: var(--gold);
+    font-size: 0.75rem;
+    font-weight: 900;
+  }
+
+  /* meta info */
+  .card-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .meta-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+
+  .meta-chip .icon { font-size: 0.8rem; }
+  .meta-chip .val  { color: var(--text); }
+  .meta-chip .lbl  { color: var(--text-dim); font-size: 0.68rem; }
+
+  /* empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty h3 { font-family: 'Fredoka One', cursive; font-size: 1.4rem; color: var(--text-dim); }
+
+  /* legend */
+  .legend {
+    margin-top: 40px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+
+  .legend-title {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .legend-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+
+  .legend-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    .controls { grid-template-columns: 1fr 1fr; }
+    .reset-btn { grid-column: span 2; }
+    h1 { font-size: 1.8rem; }
+  }
+
+  /* Custom image dropdown */
+  .cust-sel { position: relative; user-select: none; }
+  .cust-sel-trigger {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 9px 14px; cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s; min-height: 42px;
+  }
+  .cust-sel-trigger:hover, .cust-sel.open .cust-sel-trigger {
+    border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,200,66,0.12);
+  }
+  .cust-icon-wrap { width: 24px; height: 24px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .cust-icon-wrap img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
+  .cust-fb-emoji { font-size: 1rem; }
+  .cust-label { flex: 1; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--text); }
+  .cust-arrow { color: var(--text-dim); font-size: 0.65rem; transition: transform 0.2s; flex-shrink:0; }
+  .cust-sel.open .cust-arrow { transform: rotate(180deg); }
+  .cust-sel-list {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
+    z-index: 100; max-height: 320px; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .cust-sel.open .cust-sel-list { display: block; }
+  .cust-opt {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; cursor: pointer; transition: background 0.15s;
+    border-radius: 0; font-size: 0.88rem; font-weight: 700; color: var(--text);
+  }
+  .cust-opt:first-child { border-radius: 8px 8px 0 0; }
+  .cust-opt:last-child { border-radius: 0 0 8px 8px; }
+  .cust-opt:hover { background: var(--card-hover); }
+  .cust-opt.selected { background: rgba(245,200,66,0.1); color: var(--gold); }
+  .cust-opt img { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; flex-shrink:0; }
+  .cust-opt .opt-fb { font-size: 1rem; width: 22px; text-align:center; flex-shrink:0; }
+
+  /* item section icon */
+  .item-icon-img { width: 28px; height: 28px; object-fit: contain; image-rendering: pixelated; }
+  .planter-icon-img { width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated; vertical-align: middle; margin-right: 4px; }
+
+
+  /* Logo */
+  .logo { display: inline-flex; align-items: center; gap: 16px; margin-bottom: 4px; }
+  .logo-img-wrap {
+    width: 72px; height: 72px; flex-shrink: 0;
+    background: #000; border-radius: 16px;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 24px rgba(0,229,255,0.35), 0 0 0 1.5px rgba(0,229,255,0.2);
+  }
+  .logo-img {
+    width: 100%; height: 100%; display: block;
+  }
+  .logo-text-wrap { text-align: left; }
+  .made-by {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted); margin-top: 4px;
+  }
+  .made-by span { color: var(--gold); }
+
+</style>
+</head>
+<body>
+<div class="hex-bg"></div>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">
+      <div class="logo-img-wrap">
+        <img src="data:image/png;base64,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" class="logo-img" alt="BSS Planter Drops Logo">
+      </div>
+      <div class="logo-text-wrap">
+        <h1>BSS Planter Drops</h1>
+        <p class="subtitle">Bee Swarm Simulator · Drop Reference</p>
+      </div>
+    </div>
+    <p class="made-by">made by <span>killericboy</span></p>
+  </header>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>🌿 Filter by Item</label>
+      <div class="cust-sel" id="itemDrop">
+        <div class="cust-sel-trigger" id="itemTrigger">
+          <span class="cust-icon-wrap"><span class="cust-fb-emoji">🌿</span></span>
+          <span class="cust-label" id="itemLabel">All Items</span>
+          <span class="cust-arrow">▼</span>
+        </div>
+        <div class="cust-sel-list" id="itemList"></div>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>🪴 Filter by Planter</label>
+      <div class="cust-sel" id="planterDrop">
+        <div class="cust-sel-trigger" id="planterTrigger">
+          <span class="cust-icon-wrap"><span class="cust-fb-emoji">🪴</span></span>
+          <span class="cust-label" id="planterLabel">All Planters</span>
+          <span class="cust-arrow">▼</span>
+        </div>
+        <div class="cust-sel-list" id="planterList"></div>
+      </div>
+    </div>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="filter-pills" id="typePills">
+    <div class="pill active" data-type="all">All Types</div>
+    <div class="pill" data-type="guaranteed">✅ Guaranteed <span style="opacity:0.6;font-size:0.7em">+ ×2</span></div>
+    <div class="pill" data-type="high_chance">🌟 High Chance <span style="opacity:0.6;font-size:0.7em">+ Higher + Bonus</span></div>
+    <div class="pill" data-type="bonus_drop">🎁 Bonus Drop</div>
+    <div class="pill" data-type="33%_chance">🎲 33% Chance</div>
+    <div class="pill" data-type="random">🔀 Random</div>
+  </div>
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div id="content"></div>
+
+  <div class="legend">
+    <div class="legend-title">Drop Type Legend</div>
+    <div class="legend-items">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Guaranteed <span style="color:var(--red);font-size:0.7rem">(incl. ×2)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>High Chance <span style="color:var(--amber);font-size:0.7rem">(incl. Higher & Bonus Higher)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Bonus Drop</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--honey)"></div>33% Chance</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div>Random</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DATA = {"planter_drops":[{"item":"Whirligig","drops":[{"planter":"Sticker Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Petal Planter","field":"Pine Tree Forest","drop_type":"higher_chance","cooldown_days":0},{"planter":"Blue Clay Planter","field":"Pine Tree Forest","drop_type":"higher_chance","cooldown_days":0},{"planter":"Any Planter","field":"Pine Tree Forest","drop_type":"higher_chance","cooldown_days":0}]},{"item":"Gumdrops","drops":[{"planter":"Candy Planter","field":"Any","amount":5,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Candy Planter","field_sequence":["Blue Flower Field","Strawberry Field","Pineapple Patch"],"drop_type":"bonus_higher_chance","cooldown_days":0}]},{"item":"Enzymes","drops":[{"planter":"Heat-Treated Planter","field_sequence":["Pineapple Patch","Pineapple Patch","Pineapple Patch"],"amount":100,"drop_type":"guaranteed","cooldown_days":30}]},{"item":"Moon Charms","drops":[{"planter":"Any Planter","field":"Any","drop_type":"random","cooldown_days":0}]},{"item":"Jelly Beans","drops":[{"planter":"Candy Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Petal Planter","field":"Any","drop_type":"bonus_drop","cooldown_days":0}]},{"item":"Smooth Dice","drops":[{"planter":"Sticker Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Any Planter","field":"Any","drop_type":"random","cooldown_days":0}]},{"item":"Field Dice","drops":[{"planter":"Tacky Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Petal Planter","field":"Any","drop_type":"bonus_drop","cooldown_days":0}]},{"item":"Soft Wax","drops":[{"planter":"Red Clay Planter","field_sequence":["Clover Field","Spider Field","Cactus Field"],"amount":10,"drop_type":"guaranteed","cooldown_days":14},{"planter":"Red Clay Planter","field":"Pumpkin Patch","amount":2,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Sticker Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0}]},{"item":"Hard Wax","drops":[{"planter":"Red Clay Planter","field":"Any","drop_type":"bonus_higher_chance","cooldown_days":0},{"planter":"Planter of Plenty","field":"Any","drop_type":"bonus_higher_chance","cooldown_days":0},{"planter":"Any Planter","field":"Pumpkin Patch","drop_type":"higher_chance","cooldown_days":0}]},{"item":"Micro-Converter","drops":[{"planter":"Blue Clay Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Blue Clay Planter","field":"Spider Field","amount":"10-15","drop_type":"guaranteed","cooldown_days":0,"cooldown_unknown":true}]},{"item":"Glitter","drops":[{"planter":"Petal Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Petal Planter","field":"Any white flower field","amount":10,"drop_type":"guaranteed","cooldown_days":0,"cooldown_unknown":true}]},{"item":"Glue","drops":[{"planter":"Candy Planter","field_sequence":["Stump Field","Stump Field","Stump Field"],"amount":10,"drop_type":"guaranteed","cooldown_days":7}]},{"item":"Purple Potion","drops":[{"planter":"Red Clay Planter","field_sequence":["Any Blue Field","Any Red Field"],"amount":1,"drop_type":"guaranteed","cooldown_days":0,"cooldown_unknown":true},{"planter":"Tacky Planter","field_sequence":["Mushroom Field","Blue Flower Field"],"amount":1,"drop_type":"guaranteed","cooldown_days":0,"cooldown_unknown":true}]},{"item":"Red Extract","drops":[{"planter":"Heat-Treated Planter","field_sequence":["Mushroom Field","Strawberry Field","Rose Field","Pepper Patch"],"amount":100,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Heat-Treated Planter","field":"Any red field","amount":100,"drop_type":"guaranteed","cooldown_days":30}]},{"item":"Blue Extract","drops":[{"planter":"Hydroponic Planter","field_sequence":["Blue Flower Field","Bamboo Field","Pine Tree Forest","Stump Field"],"amount":100,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Hydroponic Planter","field":"Any blue field","amount":100,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Blue Clay Planter","field":"Any","amount":1,"drop_type":"guaranteed","cooldown_days":0}]},{"item":"Stinger","drops":[{"planter":"Red Clay Planter","field_sequence":["Clover Field","Spider Field","Cactus Field"],"amount":10,"drop_type":"guaranteed","cooldown_days":14},{"planter":"Heat-Treated Planter","field":"Cactus Field","amount":10,"drop_type":"guaranteed","cooldown_days":1}]},{"item":"Blueberry","drops":[{"planter":"Any Planter","field":"Any","drop_type":"random","cooldown_days":0}]},{"item":"Strawberry","drops":[{"planter":"Any Planter","field":"Any","drop_type":"random","cooldown_days":0}]},{"item":"Sunflower Seed","drops":[{"planter":"Tacky Planter","field":"Any","drop_type":"bonus_drop","cooldown_days":0},{"planter":"Petal Planter","field":"Any","drop_type":"bonus_drop","cooldown_days":0}]},{"item":"Pineapple","drops":[{"planter":"Any Planter","field":"Any","drop_type":"random","cooldown_days":0}]},{"item":"Honeysuckle","drops":[{"planter":"Blue Clay Planter","field":"Any","amount":3,"drop_type":"guaranteed","cooldown_days":0},{"planter":"Blue Clay Planter","field_sequence":["Rose Field","Blue Flower Field","Sunflower Field"],"amount":"2x normal amount","drop_type":"guaranteed_double","cooldown_days":0}]},{"item":"Swirled Wax","drops":[{"planter":"Plastic Planter","field":"Coconut Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Candy Planter","field":"Cactus Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Blue Clay Planter","field":"Spider Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Red Clay Planter","field":"Sunflower Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Red Clay Planter","field":"Pine Tree Forest","amount":1,"drop_type":"guaranteed","cooldown_days":7},{"planter":"Tacky Planter","field":"Pumpkin Patch","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Pesticide Planter","field":"Strawberry Field","amount":1,"drop_type":"guaranteed","cooldown_days":36},{"planter":"Heat-Treated Planter","field":"Blue Flower Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Hydroponic Planter","field":"Mushroom Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Petal Planter","field":"Strawberry Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Planter of Plenty","field":"Any","amount":"1 (high chance) or 5 (monthly)","drop_type":"high_chance","cooldown_days":30}]},{"item":"Caustic Wax","drops":[{"planter":"Plastic Planter","field":"Rose Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Candy Planter","field":"Mountain Top Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Blue Clay Planter","field":"Clover Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Red Clay Planter","field":"Clover Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Tacky Planter","field":"Bamboo Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Heat-Treated Planter","field":"Coconut Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Hydroponic Planter","field":"Coconut Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Petal Planter","field":"Dandelion Field","amount":1,"drop_type":"guaranteed","cooldown_days":30},{"planter":"Planter of Plenty","field":"Any","amount":1,"drop_type":"33%_chance","cooldown_days":0}]}]};
+
+const W = 'https://bee-swarm-simulator.fandom.com/wiki/Special:FilePath/';
+const itemIcons = {
+  'Whirligig': W+'Whirligig.png',
+  'Gumdrops': W+'Gumdrops.png',
+  'Enzymes': W+'Enzymes.png',
+  'Moon Charms': W+'Moon_Charm.png',
+  'Jelly Beans': W+'Jelly_Bean.png',
+  'Smooth Dice': W+'Smooth_Dice.png',
+  'Field Dice': W+'Field_Dice.png',
+  'Soft Wax': W+'Soft_Wax.png',
+  'Hard Wax': W+'Hard_Wax.png',
+  'Micro-Converter': W+'Micro-Converter.png',
+  'Glitter': W+'Glitter.png',
+  'Glue': W+'Glue.png',
+  'Purple Potion': W+'Purple_Potion.png',
+  'Red Extract': W+'Red_Extract.png',
+  'Blue Extract': W+'Blue_Extract.png',
+  'Stinger': W+'Stinger.png',
+  'Blueberry': W+'Blueberry.png',
+  'Strawberry': W+'Strawberry.png',
+  'Sunflower Seed': W+'Sunflower_Seed.png',
+  'Pineapple': W+'Pineapple.png',
+  'Honeysuckle': W+'Honeysuckle.png',
+  'Swirled Wax': W+'Swirled_Wax.png',
+  'Caustic Wax': W+'Caustic_Wax.png',
+};
+const planterIcons = {
+  'Blue Clay Planter': W+'Blue_Clay_Planter.png',
+  'Candy Planter': W+'Candy_Planter.png',
+  'Heat-Treated Planter': W+'Heat-Treated_Planter.png',
+  'Hydroponic Planter': W+'Hydroponic_Planter.png',
+  'Petal Planter': W+'Petal_Planter.png',
+  'Pesticide Planter': W+'Pesticide_Planter.png',
+  'Planter of Plenty': W+'The_Planter_of_Plenty.png',
+  'Plastic Planter': W+'Plastic_Planter.png',
+  'Red Clay Planter': W+'Red_Clay_Planter.png',
+  'Sticker Planter': W+'Sticker_Planter.png',
+  'Tacky Planter': W+'Tacky_Planter.png',
+};
+const itemEmojis = {
+  'Whirligig':'🌀','Gumdrops':'🍬','Enzymes':'🧪','Moon Charms':'🌙',
+  'Jelly Beans':'🍭','Smooth Dice':'🎲','Field Dice':'🎲','Soft Wax':'🕯️',
+  'Hard Wax':'🟤','Micro-Converter':'🔄','Glitter':'✨','Glue':'🫧',
+  'Purple Potion':'💜','Red Extract':'🔴','Blue Extract':'🔵','Stinger':'⚡',
+  'Blueberry':'🫐','Strawberry':'🍓','Sunflower Seed':'🌻','Pineapple':'🍍',
+  'Honeysuckle':'🌸','Swirled Wax':'🌀','Caustic Wax':'☠️'
+};
+
+const typeLabels = {
+  'guaranteed':'Guaranteed','guaranteed_double':'Guaranteed ×2',
+  'high_chance':'High Chance','higher_chance':'Higher Chance',
+  'bonus_drop':'Bonus Drop','bonus_higher_chance':'Bonus Higher',
+  'random':'Random','33%_chance':'33% Chance'
+};
+
+let activeItem = 'all';
+let activePlanter = 'all';
+let activeType = 'all';
+
+// Build dropdown options
+const items = DATA.planter_drops.filter(d => d.drops).map(d => d.item);
+const REAL_PLANTERS = ['Blue Clay Planter','Candy Planter','Heat-Treated Planter','Hydroponic Planter','Petal Planter','Pesticide Planter','Planter of Plenty','Plastic Planter','Red Clay Planter','Sticker Planter','Tacky Planter'];
+const planters = REAL_PLANTERS;
+
+// Build custom dropdowns
+function buildDrop(listId, triggerId, labelId, dropId, dataArr, iconMap, emojiMap, allLabel, allEmoji, onSelect) {
+  const list = document.getElementById(listId);
+  const trigger = document.getElementById(triggerId);
+  const labelEl = document.getElementById(labelId);
+  const drop = document.getElementById(dropId);
+
+  function makeOpt(val, label, iconUrl, fbEmoji) {
+    const div = document.createElement('div');
+    div.className = 'cust-opt' + (val === 'all' ? ' selected' : '');
+    div.dataset.value = val;
+    if (iconUrl) {
+      div.innerHTML = `<img src="${iconUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'"><span class="opt-fb" style="display:none">${fbEmoji||'🌿'}</span><span>${label}</span>`;
+    } else {
+      div.innerHTML = `<span class="opt-fb">${fbEmoji||'🌿'}</span><span>${label}</span>`;
+    }
+    div.addEventListener('click', () => {
+      list.querySelectorAll('.cust-opt').forEach(o => o.classList.remove('selected'));
+      div.classList.add('selected');
+      // update trigger
+      const iconEl = div.querySelector('img');
+      const fbEl = div.querySelector('.opt-fb');
+      const iconWrap = trigger.querySelector('.cust-icon-wrap');
+      if (iconUrl) {
+        iconWrap.innerHTML = `<img src="${iconUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'"><span class="cust-fb-emoji" style="${iconEl && iconEl.style.display==='none'?'':'display:none'}">${fbEmoji||'🌿'}</span>`;
+      } else {
+        iconWrap.innerHTML = `<span class="cust-fb-emoji">${fbEmoji||'🌿'}</span>`;
+      }
+      labelEl.textContent = label;
+      drop.classList.remove('open');
+      onSelect(val);
+    });
+    return div;
+  }
+
+  list.appendChild(makeOpt('all', allLabel, null, allEmoji));
+  dataArr.forEach(d => {
+    list.appendChild(makeOpt(d, d, iconMap[d]||null, emojiMap[d]||'🌿'));
+  });
+
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    const wasOpen = drop.classList.contains('open');
+    document.querySelectorAll('.cust-sel').forEach(s => s.classList.remove('open'));
+    if (!wasOpen) drop.classList.add('open');
+  });
+}
+
+buildDrop('itemList','itemTrigger','itemLabel','itemDrop', items, itemIcons, itemEmojis, 'All Items', '🌿', val => { activeItem = val; render(); });
+buildDrop('planterList','planterTrigger','planterLabel','planterDrop', planters, planterIcons, {}, 'All Planters', '🪴', val => { activePlanter = val; render(); });
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.cust-sel').forEach(s => s.classList.remove('open'));
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  activeItem = 'all'; activePlanter = 'all'; activeType = 'all';
+  // reset item dropdown
+  ['itemList','planterList'].forEach(lid => {
+    document.getElementById(lid).querySelectorAll('.cust-opt').forEach((o,i) => o.classList.toggle('selected', i===0));
+  });
+  document.getElementById('itemLabel').textContent = 'All Items';
+  document.getElementById('planterLabel').textContent = 'All Planters';
+  document.getElementById('itemDrop').querySelector('.cust-icon-wrap').innerHTML = '<span class="cust-fb-emoji">🌿</span>';
+  document.getElementById('planterDrop').querySelector('.cust-icon-wrap').innerHTML = '<span class="cust-fb-emoji">🪴</span>';
+  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.type === 'all'));
+  render();
+});
+
+document.getElementById('typePills').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  activeType = pill.dataset.type;
+  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p === pill));
+  render();
+});
+
+function getBadgeClass(type) {
+  return 'type-badge badge-' + (type === '33%_chance' ? '33_chance' : type);
+}
+
+function renderField(drop) {
+  if (drop.field_sequence) {
+    return `<div class="field-label">Field Sequence</div>
+      <div class="field-sequence">
+        ${drop.field_sequence.map((f,i) =>
+          `<span class="field-step">${f}</span>${i < drop.field_sequence.length-1 ? '<span class="field-arrow">→</span>' : ''}`
+        ).join('')}
+      </div>`;
+  } else {
+    return `<div class="field-label">Field</div>
+      <div class="field-single">${drop.field}</div>`;
+  }
+}
+
+function renderCard(drop) {
+  const meta = [];
+  if (drop.amount !== undefined) meta.push(`<div class="meta-chip"><span class="icon">📦</span><span class="lbl">Amt</span><span class="val">${drop.amount}</span></div>`);
+  if (drop.cooldown_days !== undefined) {
+    const cdVal = drop.cooldown_unknown ? '? days (unknown)' : drop.cooldown_days === 0 ? 'None' : drop.cooldown_days + 'd';
+    const cdColor = drop.cooldown_unknown ? 'color:var(--amber)' : '';
+    meta.push(`<div class="meta-chip"><span class="icon">⏱</span><span class="lbl">CD</span><span class="val" style="${cdColor}">${cdVal}</span></div>`);
+  }
+
+  return `<div class="drop-card" data-type="${drop.drop_type}">
+    <div class="card-top">
+      <div class="planter-name">${planterIcons[drop.planter] ? `<img src="${planterIcons[drop.planter]}" class="planter-icon-img" onerror="this.style.display='none'">` : ''}${drop.planter}</div>
+      <div class="${getBadgeClass(drop.drop_type)}">${typeLabels[drop.drop_type] || drop.drop_type}</div>
+    </div>
+    ${renderField(drop)}
+    ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
+  </div>`;
+}
+
+function render() {
+  const content = document.getElementById('content');
+  const statsBar = document.getElementById('statsBar');
+  let totalCards = 0;
+  let html = '';
+
+  const filtered = DATA.planter_drops.filter(entry => {
+    if (!entry.drops) return false;
+    if (activeItem !== 'all' && entry.item !== activeItem) return false;
+    return true;
+  });
+
+  filtered.forEach((entry, idx) => {
+    const drops = entry.drops.filter(d => {
+      if (activePlanter !== 'all' && d.planter !== activePlanter) return false;
+      if (!matchesType(d.drop_type, activeType)) return false;
+      return true;
+    });
+
+    if (drops.length === 0) return;
+    totalCards += drops.length;
+
+    const emoji = itemEmojis[entry.item] || '🌿';
+    const iconUrl = itemIcons[entry.item] || '';
+    html += `<div class="item-section" style="animation-delay:${idx*0.04}s">
+      <div class="item-header" onclick="toggleSection(this)">
+        ${iconUrl ? `<img src="${iconUrl}" class="item-icon-img" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="font-size:1.3rem;display:none">${emoji}</span>` : `<span style="font-size:1.3rem">${emoji}</span>`}
+        <span class="item-name">${entry.item}</span>
+        <span class="drop-count-badge">${drops.length} drop${drops.length>1?'s':''}</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="divider"></div>
+      <div class="drops-grid">
+        ${drops.map(renderCard).join('')}
+      </div>
+    </div>`;
+  });
+
+  content.innerHTML = html || `<div class="empty">
+    <div class="empty-icon">🍯</div>
+    <h3>No drops match your filters</h3>
+    <p style="margin-top:8px;color:var(--muted);font-size:0.85rem">Try adjusting your selections above</p>
+  </div>`;
+
+  const visibleItems = filtered.filter(e => e.drops && e.drops.some(d => {
+    if (activePlanter !== 'all' && d.planter !== activePlanter) return false;
+    if (!matchesType(d.drop_type, activeType)) return false;
+    return true;
+  })).length;
+
+  statsBar.innerHTML = `
+    <div class="stat-pill">Items <span>${visibleItems}</span></div>
+    <div class="stat-pill">Drop entries <span>${totalCards}</span></div>
+  `;
+}
+
+function matchesType(dropType, activeType) {
+  if (activeType === 'all') return true;
+  const typeGroups = {
+    'guaranteed': ['guaranteed', 'guaranteed_double'],
+    'high_chance': ['high_chance', 'higher_chance', 'bonus_higher_chance']
+  };
+  const group = typeGroups[activeType];
+  return group ? group.includes(dropType) : dropType === activeType;
+}
+
+function toggleSection(header) {
+  header.closest('.item-section').classList.toggle('collapsed');
+}
+
+render();
+</script>
+</body>
+</html>

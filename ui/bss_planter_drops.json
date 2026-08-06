@@ -1,0 +1,574 @@
+{
+  "planter_drops": [
+    {
+      "item": "Whirligig",
+      "drops": [
+        {
+          "planter": "Sticker Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Pine Tree Forest",
+          "drop_type": "higher_chance",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Pine Tree Forest",
+          "drop_type": "higher_chance",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Any Planter",
+          "field": "Pine Tree Forest",
+          "drop_type": "higher_chance",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Gumdrops",
+      "drops": [
+        {
+          "planter": "Candy Planter",
+          "field": "Any",
+          "amount": 5,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Candy Planter",
+          "field_sequence": [
+            "Blue Flower Field",
+            "Strawberry Field",
+            "Pineapple Patch"
+          ],
+          "drop_type": "bonus_higher_chance",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Enzymes",
+      "drops": [
+        {
+          "planter": "Heat-Treated Planter",
+          "field_sequence": [
+            "Pineapple Patch",
+            "Pineapple Patch",
+            "Pineapple Patch"
+          ],
+          "amount": 100,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        }
+      ]
+    },
+    {
+      "item": "Moon Charms",
+      "drops": [
+        {
+          "planter": "Any Planter",
+          "field": "Any",
+          "drop_type": "random",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Jelly Beans",
+      "drops": [
+        {
+          "planter": "Candy Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Any",
+          "drop_type": "bonus_drop",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Smooth Dice",
+      "drops": [
+        {
+          "planter": "Sticker Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Any Planter",
+          "field": "Any",
+          "drop_type": "random",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Field Dice",
+      "drops": [
+        {
+          "planter": "Tacky Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Any",
+          "drop_type": "bonus_drop",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Soft Wax",
+      "drops": [
+        {
+          "planter": "Red Clay Planter",
+          "field_sequence": [
+            "Clover Field",
+            "Spider Field",
+            "Cactus Field"
+          ],
+          "amount": 10,
+          "drop_type": "guaranteed",
+          "cooldown_days": 14
+        },
+        {
+          "planter": "Red Clay Planter",
+          "field": "Pumpkin Patch",
+          "amount": 2,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Sticker Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Hard Wax",
+      "drops": [
+        {
+          "planter": "Red Clay Planter",
+          "field": "Any",
+          "drop_type": "bonus_higher_chance",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Planter of Plenty",
+          "field": "Any",
+          "drop_type": "bonus_higher_chance",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Any Planter",
+          "field": "Pumpkin Patch",
+          "drop_type": "higher_chance",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Micro-Converter",
+      "drops": [
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Spider Field",
+          "amount": "10-15",
+          "drop_type": "guaranteed",
+          "cooldown_days": 0,
+          "cooldown_unknown": true
+        }
+      ]
+    },
+    {
+      "item": "Glitter",
+      "drops": [
+        {
+          "planter": "Petal Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Any white flower field",
+          "amount": 10,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0,
+          "cooldown_unknown": true
+        }
+      ]
+    },
+    {
+      "item": "Glue",
+      "drops": [
+        {
+          "planter": "Candy Planter",
+          "field_sequence": [
+            "Stump Field",
+            "Stump Field",
+            "Stump Field"
+          ],
+          "amount": 10,
+          "drop_type": "guaranteed",
+          "cooldown_days": 7
+        }
+      ]
+    },
+    {
+      "item": "Purple Potion",
+      "drops": [
+        {
+          "planter": "Red Clay Planter",
+          "field_sequence": [
+            "Any Blue Field",
+            "Any Red Field"
+          ],
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0,
+          "cooldown_unknown": true
+        },
+        {
+          "planter": "Tacky Planter",
+          "field_sequence": [
+            "Mushroom Field",
+            "Blue Flower Field"
+          ],
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0,
+          "cooldown_unknown": true
+        }
+      ]
+    },
+    {
+      "item": "Red Extract",
+      "drops": [
+        {
+          "planter": "Heat-Treated Planter",
+          "field_sequence": [
+            "Mushroom Field",
+            "Strawberry Field",
+            "Rose Field",
+            "Pepper Patch"
+          ],
+          "amount": 100,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Heat-Treated Planter",
+          "field": "Any red field",
+          "amount": 100,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        }
+      ]
+    },
+    {
+      "item": "Blue Extract",
+      "drops": [
+        {
+          "planter": "Hydroponic Planter",
+          "field_sequence": [
+            "Blue Flower Field",
+            "Bamboo Field",
+            "Pine Tree Forest",
+            "Stump Field"
+          ],
+          "amount": 100,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Hydroponic Planter",
+          "field": "Any blue field",
+          "amount": 100,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Stinger",
+      "drops": [
+        {
+          "planter": "Red Clay Planter",
+          "field_sequence": [
+            "Clover Field",
+            "Spider Field",
+            "Cactus Field"
+          ],
+          "amount": 10,
+          "drop_type": "guaranteed",
+          "cooldown_days": 14
+        },
+        {
+          "planter": "Heat-Treated Planter",
+          "field": "Cactus Field",
+          "amount": 10,
+          "drop_type": "guaranteed",
+          "cooldown_days": 1
+        }
+      ]
+    },
+    {
+      "item": "Blueberry",
+      "drops": [
+        {
+          "planter": "Any Planter",
+          "field": "Any",
+          "drop_type": "random",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Strawberry",
+      "drops": [
+        {
+          "planter": "Any Planter",
+          "field": "Any",
+          "drop_type": "random",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Sunflower Seed",
+      "drops": [
+        {
+          "planter": "Tacky Planter",
+          "field": "Any",
+          "drop_type": "bonus_drop",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Any",
+          "drop_type": "bonus_drop",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Pineapple",
+      "drops": [
+        {
+          "planter": "Any Planter",
+          "field": "Any",
+          "drop_type": "random",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Honeysuckle",
+      "drops": [
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Any",
+          "amount": 3,
+          "drop_type": "guaranteed",
+          "cooldown_days": 0
+        },
+        {
+          "planter": "Blue Clay Planter",
+          "field_sequence": [
+            "Rose Field",
+            "Blue Flower Field",
+            "Sunflower Field"
+          ],
+          "amount": "2x normal amount",
+          "drop_type": "guaranteed_double",
+          "cooldown_days": 0
+        }
+      ]
+    },
+    {
+      "item": "Swirled Wax",
+      "drops": [
+        {
+          "planter": "Plastic Planter",
+          "field": "Coconut Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Candy Planter",
+          "field": "Cactus Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Spider Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Red Clay Planter",
+          "field": "Sunflower Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Red Clay Planter",
+          "field": "Pine Tree Forest",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 7
+        },
+        {
+          "planter": "Tacky Planter",
+          "field": "Pumpkin Patch",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Pesticide Planter",
+          "field": "Strawberry Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 36
+        },
+        {
+          "planter": "Heat-Treated Planter",
+          "field": "Blue Flower Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Hydroponic Planter",
+          "field": "Mushroom Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Strawberry Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Planter of Plenty",
+          "field": "Any",
+          "amount": "1 (high chance) or 5 (monthly)",
+          "drop_type": "high_chance",
+          "cooldown_days": 30
+        }
+      ]
+    },
+    {
+      "item": "Caustic Wax",
+      "drops": [
+        {
+          "planter": "Plastic Planter",
+          "field": "Rose Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Candy Planter",
+          "field": "Mountain Top Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Blue Clay Planter",
+          "field": "Clover Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Red Clay Planter",
+          "field": "Clover Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Tacky Planter",
+          "field": "Bamboo Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Heat-Treated Planter",
+          "field": "Coconut Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Hydroponic Planter",
+          "field": "Coconut Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Petal Planter",
+          "field": "Dandelion Field",
+          "amount": 1,
+          "drop_type": "guaranteed",
+          "cooldown_days": 30
+        },
+        {
+          "planter": "Planter of Plenty",
+          "field": "Any",
+          "amount": 1,
+          "drop_type": "33%_chance",
+          "cooldown_days": 0
+        }
+      ]
+    }
+  ]
+}

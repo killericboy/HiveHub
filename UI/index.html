@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RankBlitz Macro v1.0.0</title>
+<link rel="shortcut icon" href="../assets/logo.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+
+  <div class="title-bar">
+    <div class="title-left">
+      <span class="logo" id="logoBtn"><img src="../assets/logo.png" alt="Logo"></span>
+      <div>
+        <h1>RankBlitz Macro</h1>
+        <div class="sub">PS99 Rank Quest Macro &nbsp;·&nbsp; by Killericboy &nbsp;·&nbsp; V1.0.0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active"     onclick="showTab('main',this)">Main</div>
+    <div class="tab"            onclick="showTab('equipment',this)">Equipment</div>
+    <div class="tab"            onclick="showTab('settings',this)">Settings</div>
+    <div class="tab"            onclick="showTab('logs',this)">Logs</div>
+    <div class="tab"            onclick="showTab('profiles',this)">Profiles</div>
+    <div class="tab dev-hidden" id="devTabBtn" onclick="showTab('developer',this)">🛠 Dev</div>
+  </div>
+
+  <div class="panels-wrap">
+
+    <!-- ══ MAIN ══ -->
+    <div class="panel active" id="tab-main">
+      <div class="status-row">
+        <div class="sr-cell"><div class="sr-label">LOOP</div><div class="sr-value" id="act-loop">-/-</div></div>
+        <div class="sr-sep"></div>
+        <div class="sr-cell"><div class="sr-label">RANK</div><div class="sr-value" id="act-rank">-</div></div>
+        <div class="sr-sep"></div>
+        <div class="sr-cell"><div class="sr-label">ZONE</div><div class="sr-value" id="act-zone">-</div></div>
+        <div class="sr-sep"></div>
+        <div class="sr-cell"><div class="sr-label">AREA</div><div class="sr-value" id="act-area">-</div></div>
+        <div class="sr-sep"></div>
+        <div class="sr-cell sr-grow"><div class="sr-label">QUEST</div><div class="sr-value accent" id="act-quest">-</div></div>
+        <div class="sr-sep"></div>
+        <div class="sr-cell sr-grow"><div class="sr-label">ACTION</div><div class="sr-value" id="act-action">-</div></div>
+        <div class="sr-sep"></div>
+        <div class="sr-cell"><div class="sr-label">TIME</div><div class="sr-value" id="act-time">-</div></div>
+      </div>
+
+      <div class="quest-header">
+        <div class="section-label" style="margin:0">
+          QUEST SLOTS
+          <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Live quest data read from your game via OCR. Click Refresh to update. Quests auto-load when you press Start.</span></span>
+        </div>
+        <button class="btn-sm" onclick="ahk('RefreshQuests')">🔄 Refresh</button>
+      </div>
+
+      <div class="quest-table-wrap">
+        <table class="quest-table">
+          <thead><tr><th>★</th><th>Quest</th><th>Amount</th><th>Priority</th><th>Status</th><th>Zone</th><th></th></tr></thead>
+          <tbody id="quest-slots"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ EQUIPMENT ══ -->
+    <div class="panel" id="tab-equipment">
+
+      <div class="section-label">
+        EQUIPMENT KEYBINDS
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Match these to your in-game Equipment Bar hotkeys. The macro sends these keys to spawn or use items during quests. Leave blank to disable that item.</span></span>
+      </div>
+      <div class="card" style="border-left-color:#f59e0b">
+        <div class="keybind-grid" id="keybind-grid"></div>
+      </div>
+
+      <div class="section-label" style="margin-top:10px">
+        ITEM TIMING
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">How long (in seconds) the macro actively hunts or waits after spawning each item. Increase if your PC or connection is slow.</span></span>
+        <span style="font-size:9px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">&nbsp;(seconds per use)</span>
+      </div>
+      <div class="card" style="border-left-color:#22c55e">
+        <div class="timing-grid" id="timing-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div class="panel" id="tab-settings">
+
+      <div class="section-label">
+        GENERAL
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Core macro behaviour: total quest loops to run, eggs hatched per batch, and a global delay multiplier for slow connections or PCs.</span></span>
+      </div>
+      <div class="card">
+        <div class="row" style="flex-wrap:nowrap">
+          <span class="label">Loops</span>
+          <div class="stepper">
+            <button onclick="stepInt('numberOfLoops',-1)">−</button>
+            <input type="number" id="numberOfLoops" value="20" min="1" max="9999" oninput="save()">
+            <button onclick="stepInt('numberOfLoops',1)">+</button>
+          </div>
+          <span class="label">Eggs</span>
+          <div class="stepper">
+            <button onclick="stepInt('eggsAtOnce',-1)">−</button>
+            <input type="number" id="eggsAtOnce" value="73" min="1" max="999" oninput="save()">
+            <button onclick="stepInt('eggsAtOnce',1)">+</button>
+          </div>
+          <span class="label">Delay ×</span>
+          <div class="stepper">
+            <button onclick="stepFlt('delayModifier',-0.1)">−</button>
+            <input type="number" id="delayModifier" value="1.2" min="0.5" max="5" step="0.1" oninput="save()">
+            <button onclick="stepFlt('delayModifier',0.1)">+</button>
+          </div>
+          <label class="check-row" onclick="toggleCheck('eatFruit')">
+            <input type="checkbox" id="eatFruit" checked onchange="save()">
+            <div class="check-box"></div>
+            <span class="check-label">Eat Fruit</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section-label">
+        GAMEPASSES
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Enable gamepasses you own. VIP unlocks Diamond Breakable quests. Super Drops disables Potion/Enchant collection quests. Double Stars doubles quest star level shown.</span></span>
+      </div>
+      <div class="card">
+        <div class="row" style="flex-wrap:nowrap;gap:12px">
+          <label class="check-row" onclick="toggleCheck('hasVip')">
+            <input type="checkbox" id="hasVip" onchange="save()">
+            <div class="check-box"></div><span class="check-label">VIP</span>
+          </label>
+          <label class="check-row" onclick="toggleCheck('hasAutoFarm')">
+            <input type="checkbox" id="hasAutoFarm" onchange="save()">
+            <div class="check-box"></div><span class="check-label">Auto Farm</span>
+          </label>
+          <label class="check-row" onclick="toggleCheck('hasDoubleStars')">
+            <input type="checkbox" id="hasDoubleStars" onchange="save()">
+            <div class="check-box"></div><span class="check-label">Double Stars</span>
+          </label>
+          <label class="check-row" onclick="toggleCheck('hasShinyHoverboard')">
+            <input type="checkbox" id="hasShinyHoverboard" onchange="save()">
+            <div class="check-box"></div><span class="check-label">Shiny Hoverboard</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section-label">
+        ZONE BOOSTS
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Automatically drops these items whenever the macro enters your best zone, maximising diamond and quest gains per loop.</span></span>
+      </div>
+      <div class="card">
+        <div class="row" style="gap:16px">
+          <label class="check-row" onclick="toggleCheck('useFlagBestZone')">
+            <input type="checkbox" id="useFlagBestZone" onchange="save()">
+            <div class="check-box"></div>
+            <span class="check-label">Drop Flag in Best Zone</span>
+          </label>
+          <label class="check-row" onclick="toggleCheck('useSprinklerBestZone')">
+            <input type="checkbox" id="useSprinklerBestZone" onchange="save()">
+            <div class="check-box"></div>
+            <span class="check-label">Drop Sprinkler in Best Zone</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section-label">
+        RECONNECT
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">After all loops finish, the macro can auto-rejoin Pet Simulator 99 via deep link and restart. Use a private server code to always land in your own server.</span></span>
+      </div>
+      <div class="card">
+        <label class="check-row" onclick="toggleCheck('reconnectAfterLoops')" style="margin-bottom:6px">
+          <input type="checkbox" id="reconnectAfterLoops" onchange="save()">
+          <div class="check-box"></div>
+          <span class="check-label">Reconnect after all loops complete</span>
+        </label>
+        <div class="row" style="margin-bottom:5px">
+          <span class="label">Wait (s)</span>
+          <div class="stepper">
+            <button onclick="stepInt('reconnectSeconds',-5)">−</button>
+            <input type="number" id="reconnectSeconds" value="45" min="10" max="300" oninput="save()">
+            <button onclick="stepInt('reconnectSeconds',5)">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <input type="text" id="privateServerCode" class="input-full" placeholder="Private server code (blank = public)" oninput="save()">
+          <button class="btn-sm" onclick="ahk('JoinServer')">▶ Join</button>
+          <button class="btn-sm" onclick="ahk('TestReconnect')">↺ Test</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ LOGS ══ -->
+    <div class="panel" id="tab-logs">
+      <div class="log-header">
+        <div class="section-label" style="margin:0">ACTIVITY LOG</div>
+        <button class="btn-sm" onclick="clearLog()">🗑 Clear</button>
+      </div>
+      <div class="log-box log-box-full" id="log-box"></div>
+    </div>
+
+    <!-- ══ PROFILES ══ -->
+    <div class="panel" id="tab-profiles">
+      <div class="section-label">
+        PROFILES
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Save separate configurations for different accounts or playstyles. All settings including keybinds and timings are stored per profile.</span></span>
+      </div>
+      <div class="profiles-layout">
+        <div class="profile-list-wrap">
+          <div class="profile-list" id="profile-list"></div>
+        </div>
+        <div class="profile-actions">
+          <span class="label">Profile name</span>
+          <input type="text" id="profileName" class="input-full" placeholder="Enter name...">
+          <button class="btn-primary" id="addSaveBtn" onclick="doAddProfile()">➕ Add</button>
+          <button class="btn-primary" onclick="doLoadProfile()">📂 Load</button>
+          <button class="btn-sm" onclick="doDeleteProfile()" style="color:var(--red)">🗑 Delete</button>
+          <div class="feedback" id="profile-feedback"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DEVELOPER ══ -->
+    <div class="panel" id="tab-developer">
+      <div class="dev-banner">🛠 Developer Mode — Internal Debug Controls</div>
+
+      <div class="section-label">
+        DEBUG OVERLAYS
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Visual overlays drawn on screen during OCR reads. Only enable while actively debugging quest detection — has no effect on macro speed when off.</span></span>
+      </div>
+      <div class="card">
+        <label class="check-row" onclick="toggleCheck('debugMode')">
+          <input type="checkbox" id="debugMode" onchange="saveDevSettings()">
+          <div class="check-box"></div>
+          <span class="check-label">Debug Mode (OCR Pin highlight + TextRender overlay)</span>
+        </label>
+        <div class="row" style="margin-top:6px">
+          <div class="info-chip" style="margin:0;flex:1">
+            Draws a yellow rectangle around the quest OCR scan region and a cyan rectangle around the rank OCR scan region, rendering raw OCR text on screen for a few seconds after each quest refresh.
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">
+        LOG FILES
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Writes macro activity and OCR results to files in the settings\ folder. Useful for diagnosing quest misreads without needing on-screen overlays.</span></span>
+      </div>
+      <div class="card">
+        <div class="row" style="gap:16px;flex-wrap:wrap;margin-bottom:8px">
+          <label class="check-row" onclick="toggleCheck('debugLogEnabled')">
+            <input type="checkbox" id="debugLogEnabled" onchange="saveDevSettings()">
+            <div class="check-box"></div>
+            <span class="check-label">Write activity to <code>settings\debug.log</code></span>
+          </label>
+          <label class="check-row" onclick="toggleCheck('ocrLogEnabled')">
+            <input type="checkbox" id="ocrLogEnabled" onchange="saveDevSettings()">
+            <div class="check-box"></div>
+            <span class="check-label">Write OCR text to <code>settings\ocr.log</code></span>
+          </label>
+        </div>
+        <div class="row" style="gap:8px">
+          <button class="btn-sm dev-danger" onclick="ahk('ClearDebugLog')">🗑 Clear debug.log</button>
+          <button class="btn-sm dev-danger" onclick="ahk('ClearOcrLog')">🗑 Clear ocr.log</button>
+        </div>
+      </div>
+
+      <div class="section-label">
+        QUEST OCR TEST
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Manually triggers a quest and rank OCR read. Results are written to ocr.log. Enable Debug Mode above to also see on-screen overlays during the read.</span></span>
+      </div>
+      <div class="card">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn-sm" onclick="ahk('RefreshQuests')">🔄 Run Quest Refresh Now</button>
+          <span class="label">Check ocr.log afterwards for the raw output.</span>
+        </div>
+      </div>
+
+      <div class="section-label">
+        BUTTON TEMPLATE CAPTURE
+        <span class="tip-wrap"><span class="tip-icon">ℹ</span><span class="tip-text">Captures a screenshot of the Rewards button area and saves it as an image template used for reliable click detection.</span></span>
+      </div>
+      <div class="card">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn-sm" onclick="ahk('CaptureRewardsButton')">📸 Capture Rewards Button</button>
+          <span class="label">Saves to Assets\Detection\rewardbutton.png</span>
+        </div>
+      </div>
+
+      <div class="dev-note">
+        Unlock: click the macro logo 5 times &nbsp;·&nbsp; Or set <code>DEV_MODE_FORCE := true</code> in PS99Macro.ahk
+      </div>
+    </div>
+
+  </div>
+
+  <div class="stats-bar">
+    <div class="roblox-indicator">
+      <span id="det-icon" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#e8232a;border-radius:3px;font-size:10px;font-weight:900;color:#fff;flex-shrink:0">R</span>
+      <div class="det-dot" id="det-dot"></div>
+      <span id="det-name">Not detected</span>
+      <button class="btn-icon" onclick="ahk('RefreshDetected')" title="Refresh">⟳</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="label">STATUS</span>
+      <span class="badge badge-stopped" id="status-badge">STOPPED</span>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-start" onclick="ahk('StartMacro')">▶ Start (F9)</button>
+    <button class="btn-pause" id="pauseBtn" onclick="ahk('PauseMacro')">⏸ Pause (F8)</button>
+    <button class="btn-stop"  onclick="ahk('StopMacro')">■ Stop (F10)</button>
+  </div>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

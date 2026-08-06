@@ -23,18 +23,23 @@ GetRobloxClientPos(hwnd?)
 ; Returns: hWnd = successful; 0 = window not found
 GetRobloxHWND()
 {
-	if (hwnd := WinExist("Roblox ahk_exe RobloxPlayerBeta.exe"))
-		return hwnd
-	else if (WinExist("Roblox ahk_exe ApplicationFrameHost.exe"))
+    ; NO title filter for Win32 path — Roblox changes its window title once a
+    ; game loads (e.g. "Bee Swarm Simulator"), so "Roblox ahk_exe ..." returns 0.
+    if (hwnd := WinExist("ahk_exe RobloxPlayerBeta.exe"))
+        return hwnd
+
+    ; Keep "Roblox" title filter for UWP path — ApplicationFrameHost hosts
+    ; many unrelated apps, so we need something to distinguish them.
+    if WinExist("Roblox ahk_exe ApplicationFrameHost.exe")
     {
         try
             hwnd := ControlGetHwnd("ApplicationFrameInputSinkWindow1")
         catch TargetError
-		    hwnd := 0
+            hwnd := 0
         return hwnd
     }
-	else
-		return 0
+
+    return 0
 }
 
 ; Finds the y-offset of GUI elements in the current Roblox window
